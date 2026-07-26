@@ -1,0 +1,58 @@
+name: prod-smoke
+
+# 本番到達の外部事実チェック（G-2-2）。
+# 実行環境(サンドボックス)は *.vercel.app への外向きが遮断されるため、
+# プロキシ外の実機である GitHub Actions に本番URLを curl させて機械判定する。
+# この run が緑＝「公開URLが 200 かつ本文に 'web-platform'」の evidence。
+#
+# PROD_URL は未設定（空文字）。Vercel連携（G-2-1）が完了し本番URLが確定したら、
+# ここに設定して初めてこのワークフローが意味を持つ。それまでは「未接続」を機械的に
+# 報告して赤のまま維持する（古いプロジェクトのURLを誤ってチェックし続けない）。
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+# 本番URL（Vercel production alias）。Vercel連携後にここを設定する。
+env:
+  PROD_URL: ""
+
+jobs:
+  reachable:
+    name: prod 200 + marker
+    runs-on: ubuntu-latest
+    steps:
+      - name: PROD_URL 未設定チェック — G-2-1 未完了を機械的に明示
+        run: |
+          if [ -z "${PROD_URL}" ]; then
+            echo "SKIP-AS-FAIL: PROD_URL が未設定です。Vercel連携（G-2-1）完了後、このファイルのenv.PROD_URLに本番URLを設定してください。"
+            exit 1
+          fi
+
+      - name: curl production (200 かつ 'web-platform') — G-2-2
+        if: env.PROD_URL != ''
+        run: |
+          echo "Checking ${PROD_URL}"
+          code=$(curl -sS -o body.html -w '%{http_code}' --max-time 30 "${PROD_URL}")
+          echo "HTTP=${code}"
+          if [ "${code}" != "200" ]; then
+            echo "FAIL: 期待 200 に対し ${code}"
+            exit 1
+          fi
+          if ! grep -q 'web-platform' body.html; then
+            echo "FAIL: 本文にマーカー 'web-platform' が無い"
+            exit 1
+          fi
+          echo "PROD OK: 200 かつ 'web-platform' を ${PROD_URL} で確認"
+
+      - name: HSTS ヘッダを確認 — G-3-3 c2
+        if: env.PROD_URL != ''
+        run: |
+          # 本番が https かつ Strict-Transport-Security を返すこと（外部事実）。
+          hdrs=$(curl -sSI --max-time 30 "${PROD_URL}")
+          echo "${hdrs}"
+          if ! printf '%s' "${hdrs}" | grep -iq '^strict-transport-security:'; then
+            echo "FAIL: 応答に Strict-Transport-Security ヘッダが無い（main へ反映後に緑になる）"
+            exit 1
+          fi
+          echo "HSTS OK: Strict-Transport-Security を確認"

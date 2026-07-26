@@ -1,0 +1,107 @@
+/*
+ * 動きの内訳（motionEffects）= どの演出を効かせるか。複数同時に効く。
+ *
+ * 各セクション部品は既に `data-section-type` 属性を出しているので、
+ * **部品側を一切変更せず**横断で効かせられる（部品ごとに演出を書き足さない）。
+ *
+ * 採用技術: CSS scroll-driven animations（`animation-timeline: view()`）。
+ * JS ゼロ・メインスレッド外で走るため 60fps を維持しやすい。
+ * 未対応ブラウザでは @supports が効かずアニメーション自体が適用されない
+ * ＝「出たまま」になるだけで、内容が見えなくなる事故は起きない（progressive enhancement）。
+ *
+ * 台帳は src/generate/vocabulary.ts の MOTION_EFFECTS と 1:1。
+ * motion（still/subtle/rich）は「既定でどれを点けるか」のプリセットで、
+ * 実際に効くのは EFFECTS_BY_MOTION で展開された data-motion-effects の中身。
+ *
+ * 発火タイミングの方針（2026-07-24 マスター指摘「発火が早い・完了までが早い」）:
+ * - 開始は要素が画面に**しっかり入ってから**（entry 25%〜）。入る前に終わっていると
+ *   「動いた気配だけ」になり、何が起きたか分からない
+ * - 完了は要素が**ほぼ収まるまで**引っ張る（entry 100%）。区間を長く取ると目で追える
+ * - hover の transition も 0.25s → 0.4s へ伸ばし、変化を認識できるようにする
+ *
+ * transform を奪い合わないため、パララックスは `translate`、ホバー拡大は `scale`
+ * という**別々の CSS プロパティ**を使う（同じ transform に載せると片方が消える）。
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    @keyframes section-reveal {
+      from {
+        opacity: 0;
+        translate: 0 32px;
+      }
+      to {
+        opacity: 1;
+        translate: 0 0;
+      }
+    }
+
+    @keyframes media-parallax {
+      from {
+        translate: 0 -4%;
+      }
+      to {
+        translate: 0 4%;
+      }
+    }
+
+    /* reveal: セクションが入ってきたらふわっと出る。区間を長く取り、目で追える速さにする */
+    [data-motion-effects~='reveal'] [data-section-type] {
+      animation: section-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 25% entry 100%;
+    }
+
+    /* stagger: カード/リストを1枚ずつ遅らせて出す。区間をずらすことで順番出しになる */
+    [data-motion-effects~='stagger'] [data-section-type] article,
+    [data-motion-effects~='stagger'] [data-section-type] li {
+      animation: section-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 30% entry 95%;
+    }
+
+    [data-motion-effects~='stagger'] [data-section-type] article:nth-child(2),
+    [data-motion-effects~='stagger'] [data-section-type] li:nth-child(2) {
+      animation-range: entry 40% cover 12%;
+    }
+
+    [data-motion-effects~='stagger'] [data-section-type] article:nth-child(3),
+    [data-motion-effects~='stagger'] [data-section-type] li:nth-child(3) {
+      animation-range: entry 50% cover 20%;
+    }
+
+    [data-motion-effects~='stagger'] [data-section-type] article:nth-child(n + 4),
+    [data-motion-effects~='stagger'] [data-section-type] li:nth-child(n + 4) {
+      animation-range: entry 60% cover 28%;
+    }
+
+    /* parallax: 画像だけがスクロール量に対してゆっくりずれる（背景の奥行き） */
+    [data-motion-effects~='parallax'] [data-section-type] img {
+      animation: media-parallax linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+  }
+
+  /* hover: scroll-driven 非対応でも効く（@supports の外） */
+  [data-motion-effects~='hover'] [data-section-type] a,
+  [data-motion-effects~='hover'] [data-section-type] button {
+    transition:
+      translate 0.4s ease,
+      opacity 0.4s ease;
+  }
+
+  [data-motion-effects~='hover'] [data-section-type] a:hover,
+  [data-motion-effects~='hover'] [data-section-type] button:hover {
+    translate: 0 -3px;
+    opacity: 0.85;
+  }
+
+  [data-motion-effects~='hover'] [data-section-type] img {
+    transition: scale 0.5s ease;
+  }
+
+  [data-motion-effects~='hover'] [data-section-type] article:hover img {
+    scale: 1.05;
+  }
+}

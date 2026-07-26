@@ -1,0 +1,1 @@
+ALTER TABLE "content_entries" ADD CONSTRAINT "content_entries_section_key_unique" UNIQUE("section_id","key");

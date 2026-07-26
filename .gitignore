@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# next typegen
+next-env.d.ts
+
+# production / cache
+.turbo/
+.vercel/
+*.tsbuildinfo
+coverage/
+
+# env
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# apps/web（web-platform由来）
+apps/web/.pglite/
+apps/web/tests/e2e/.seed-result.json
+apps/web/test-results/
+apps/web/eval/runs/
+*.key
+secrets/
+credentials.json
+token.json

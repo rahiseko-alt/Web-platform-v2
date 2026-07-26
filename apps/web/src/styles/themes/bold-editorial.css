@@ -1,0 +1,45 @@
+/*
+ * bold-editorial = 力強い・現代的な業種向けテーマ（サービス業/テック寄り）。
+ * minimal-corporate（明朝×深緑・端正）と warm-studio（明朝×テラコッタ・情緒）は
+ * どちらも明朝ベースで書体系統が近い。bold-editorial は幾何学サンセリフ+鋭角の
+ * コントラストで、書体・角丸の系統そのものを変える（部品変化軸 cardStyle/buttonShape
+ * の効果も一番出やすい下地にする）。
+ */
+[data-theme='bold-editorial'] {
+  /* 色: 明るいニュートラル地 × エレクトリックインディゴ × パンチのあるオレンジ */
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-text: #14141a;
+  --color-text-muted: #5c5c66;
+  --color-primary: #2b2fe0;
+  --color-primary-contrast: #ffffff;
+  --color-accent: #ff5a1f;
+  --color-border: #e2e2e8;
+
+  /* 書体: 幾何学サンセリフ（Space Grotesk）× JPゴシック本文（clinic/salonと同系） */
+  --font-heading: var(--font-editorial-display);
+  --font-body: var(--font-editorial-body);
+  --text-h1: clamp(2.25rem, 5vw, 3.75rem);
+  --text-h2: 2rem;
+  --text-body: 1rem;
+  --leading: 1.55;
+  --weight-heading: 700;
+
+  /* 余白: 引き締めたリズム */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --section-py: clamp(56px, 8vw, 104px);
+  --container-max: 1160px;
+
+  /* 角丸: 鋭角寄り（minimal-corporateの端正・warm-studioの柔らかさと明確に対照） */
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-pill: 9999px;
+}

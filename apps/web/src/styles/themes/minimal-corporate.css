@@ -1,0 +1,43 @@
+/*
+ * minimal-corporate = concept.md「clinic」= 歯科・クリニック向け「信頼シグナル」テーマ。
+ * 紙の白×深いティール緑×金茶で、端正・清潔・温度のある信頼を作る（design-system.md §3）。
+ * 汎用コーポレート青(#1e3a5f/#3b82f6)とInter均一は廃止。
+ */
+[data-theme='minimal-corporate'] {
+  /* 色: 紙の白 × 深いティール緑（医療の落ち着き） × 金茶（実績・格） */
+  --color-bg: #fbfaf7;
+  --color-surface: #f1eee7;
+  --color-text: #14201e;
+  --color-text-muted: #5e6b66;
+  --color-primary: #14514a;
+  --color-primary-contrast: #fbfaf7;
+  --color-accent: #c08a2d;
+  --color-border: #e3ded4;
+
+  /* 書体: 端正な明朝（Fraunces + Zen Old Mincho）× 清潔なJPゴシック本文 */
+  --font-heading: var(--font-clinic-display);
+  --font-body: var(--font-clinic-body);
+  --text-h1: clamp(2rem, 4vw, 3rem);
+  --text-h2: 1.875rem;
+  --text-body: 1rem;
+  --leading: 1.6;
+  --weight-heading: 700;
+
+  /* 余白: 品位を出すため normal〜loose 中心（tight/loose は共通スケールを継承） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --section-py: clamp(80px, 10vw, 128px);
+  --container-max: 1200px;
+
+  /* 角丸: 端正に小さめ */
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+}

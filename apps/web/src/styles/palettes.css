@@ -1,0 +1,68 @@
+/*
+ * 配色軸（palette）= テーマから「色だけ」を切り離した上書き層。
+ *
+ * theme（書体・余白・角丸・骨格の性格）は保ったまま色を差し替えるため、
+ * theme × palette の掛け算で下地のバリエーションが増える。
+ * 台帳は src/generate/vocabulary.ts の PALETTES と 1:1（テストで照合する）。
+ *
+ * カスケード: globals.css で theme 群の**後**に @import する。
+ * [data-theme='x'] と [data-palette='y'] は同specificity(0,1,0)のため、
+ * 後から読まれる本ファイルが勝つ。両属性は同じ要素に付く（SiteThemeProvider）。
+ *
+ * theme-default は上書きを持たない＝テーマ既定色をそのまま使う。
+ */
+
+[data-palette='light-gray'] {
+  --color-bg: #f4f5f6;
+  --color-surface: #e8eaec;
+  --color-text: #1c1f22;
+  --color-text-muted: #6b7176;
+  --color-primary: #3d4649;
+  --color-primary-contrast: #f8f9fa;
+  --color-accent: #8a9298;
+  --color-border: #d6d9dc;
+}
+
+[data-palette='deep-navy'] {
+  --color-bg: #0f1724;
+  --color-surface: #182233;
+  --color-text: #eef2f8;
+  --color-text-muted: #9aa8bd;
+  --color-primary: #4f7fd4;
+  --color-primary-contrast: #0f1724;
+  --color-accent: #d8b25f;
+  --color-border: #26324a;
+}
+
+[data-palette='warm-sand'] {
+  --color-bg: #f7f1e6;
+  --color-surface: #eee3d1;
+  --color-text: #2c2116;
+  --color-text-muted: #7a6a56;
+  --color-primary: #a4632c;
+  --color-primary-contrast: #f7f1e6;
+  --color-accent: #c99a4e;
+  --color-border: #e0d2ba;
+}
+
+[data-palette='ink-black'] {
+  --color-bg: #0b0b0c;
+  --color-surface: #171719;
+  --color-text: #f2f2f0;
+  --color-text-muted: #9b9b98;
+  --color-primary: #f2f2f0;
+  --color-primary-contrast: #0b0b0c;
+  --color-accent: #c8a24a;
+  --color-border: #2a2a2d;
+}
+
+[data-palette='fresh-green'] {
+  --color-bg: #f6faf5;
+  --color-surface: #e6f1e4;
+  --color-text: #14241a;
+  --color-text-muted: #5b7062;
+  --color-primary: #2f6b45;
+  --color-primary-contrast: #f6faf5;
+  --color-accent: #7fae4a;
+  --color-border: #d2e3d0;
+}

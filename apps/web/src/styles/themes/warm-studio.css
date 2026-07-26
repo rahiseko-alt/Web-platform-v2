@@ -1,0 +1,46 @@
+/*
+ * warm-studio = concept.md「salon」= 美容サロン・エステ向け「世界観×仕上がり」テーマ。
+ * テラコッタ×近黒でエディトリアルに振り切る（design-system.md §3）。
+ * Georgia（実ロード無しの汎用serif）は廃止し、情緒ある大ウェイト明朝を実ロードする。
+ */
+[data-theme='warm-studio'] {
+  /* 色: 深いテラコッタ × 近黒（コントラストで格上げ） */
+  --color-bg: #f7f1ea;
+  --color-surface: #ede2d5;
+  --color-text: #2a211c;
+  --color-text-muted: #7a6a5d;
+  --color-primary: #b14a2e;
+  --color-primary-contrast: #fff8f1;
+  --color-accent: #1f1b17;
+  --color-border: #dfd0be;
+
+  /* 書体: 情緒ある大ウェイト明朝（Fraunces + Shippori Mincho）× 同系JPゴシック本文 */
+  --font-heading: var(--font-salon-display);
+  --font-body: var(--font-salon-body);
+  --text-h1: clamp(2rem, 4vw, 3rem);
+  --text-h2: 1.875rem;
+  --text-body: 1rem;
+  --leading: 1.7;
+  --weight-heading: 700;
+
+  /* 余白: 非対称配置で緊張感を出すため tight〜normal 中心（tight/looseは共通スケールを継承） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --section-py: clamp(48px, 7vw, 88px);
+  --container-max: 1120px;
+
+  /* 画像の意匠グレード: テラコッタ寄りの温トーン（minimal-corporate の寒色グレードと対比） */
+  --img-filter: sepia(0.26) saturate(1.12) hue-rotate(-8deg) contrast(1.02);
+
+  /* 角丸: 大きめ継続（柔らかさ） */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 9999px;
+}

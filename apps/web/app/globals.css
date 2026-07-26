@@ -1,0 +1,224 @@
+/*
+ * デザイントークン方針:
+ * 1. テーマ別上書き（[data-theme='...']）を先頭で @import する。
+ *    CSS の仕様上 @import は @tailwind より前に置く必要がある。
+ * 2. Tailwind ディレクティブ。
+ * 3. :root の既定トークン（minimal-corporate 相当）は @layer tokens に包む。
+ *    CSS Cascade Layers の規則により、レイヤーに属さない通常のスタイルは
+ *    常にレイヤー付きスタイルより優先されるため、@import の内容（レイヤー無し）
+ *    が :root（レイヤー付き）より確実に優先され、ファイル記述順に依存せず
+ *    テーマ切替（data-theme 属性）が意図通り上書きされる。
+ * 4. 最小限の reset。
+ */
+@import '../src/styles/themes/minimal-corporate.css';
+@import '../src/styles/themes/warm-studio.css';
+@import '../src/styles/themes/bold-editorial.css';
+/* palette は theme の色だけを上書きする層。同specificityのため theme 群の後に読む */
+@import '../src/styles/palettes.css';
+@import '../src/styles/motion.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer tokens {
+  :root {
+    /* 色（既定値 = minimal-corporate 相当） */
+    --color-bg: #fbfaf7;
+    --color-surface: #f1eee7;
+    --color-text: #14201e;
+    --color-text-muted: #5e6b66;
+    --color-primary: #14514a;
+    --color-primary-contrast: #fbfaf7;
+    --color-accent: #c08a2d;
+    --color-border: #e3ded4;
+
+    /* 可変フォント接続（next/font/google が app/layout.tsx で --font-fraunces /
+       --font-zen-old-mincho / --font-zen-kaku-gothic-new / --font-shippori-mincho を
+       html要素に注入する。ここではそれを業種スタックに合成する。全て system-ui フォールバック付き） */
+    --font-clinic-display: var(--font-fraunces), var(--font-zen-old-mincho), 'Hiragino Mincho ProN',
+      serif, system-ui;
+    --font-clinic-body: var(--font-zen-kaku-gothic-new), 'Hiragino Kaku Gothic ProN', system-ui,
+      sans-serif;
+    --font-salon-display: var(--font-fraunces), var(--font-shippori-mincho), 'Hiragino Mincho ProN',
+      serif, system-ui;
+    --font-salon-body: var(--font-zen-kaku-gothic-new), 'Hiragino Kaku Gothic ProN', system-ui,
+      sans-serif;
+    --font-editorial-display: var(--font-space-grotesk), 'Hiragino Sans', system-ui, sans-serif;
+    --font-editorial-body: var(--font-zen-kaku-gothic-new), 'Hiragino Kaku Gothic ProN', system-ui,
+      sans-serif;
+
+    /* 書体（既定値 = clinic 相当） */
+    --font-heading: var(--font-clinic-display);
+    --font-body: var(--font-clinic-body);
+    --text-h1: clamp(2rem, 4vw, 3rem);
+    --text-h2: 1.875rem;
+    --text-body: 1rem;
+    --leading: 1.6;
+    --weight-heading: 700;
+
+    /* 流体タイポ（エディトリアル大見出し） */
+    --text-display: clamp(2.75rem, 6vw, 5rem);
+    --tracking-tight: -0.02em;
+    --weight-display: 800;
+    --font-variation-display: 'opsz' 32, 'wght' var(--weight-display);
+
+    /* 余白 */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --space-8: 64px;
+
+    /* セクション間リズム（均一96px一律を廃止し3段化） */
+    --section-py-tight: clamp(40px, 6vw, 64px);
+    --section-py: clamp(80px, 10vw, 128px);
+    --section-py-loose: clamp(96px, 14vw, 180px);
+    --container-max: 1200px;
+
+    /* フルブリード / 可読行長 */
+    --bleed-max: 100vw;
+    --content-max: var(--container-max);
+    --measure: 62ch;
+
+    /* 機能的導線 */
+    --sticky-cta-h: 64px;
+    --tap-target-min: 44px;
+
+    /* 操作単位の構造（比較レール・before/after） */
+    --rail-gap: clamp(12px, 2vw, 24px);
+    --snap-card-w: clamp(260px, 72vw, 360px);
+
+    /* 画像の意匠グレード（テーマ別duotone調・非トピカル写真を意図的な統一トーンに寄せる。
+       warm-studio.css で上書きし、テーマごとに写真の温度感を変える＝金太郎飴回帰防止） */
+    --img-filter: grayscale(0.3) contrast(1.04) brightness(1.02);
+
+    /* 角丸（既定値 = clinic 相当：端正に小さめ） */
+    --radius-sm: 2px;
+    --radius-md: 6px;
+    --radius-lg: 12px;
+    --radius-pill: 9999px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: var(--leading);
+}
+
+/* header-01 のモバイル常時CTAバー（.sticky-cta-bar・md:hidden）に本文が隠れないための余白 */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: var(--sticky-cta-h);
+  }
+}
+
+/*
+ * CSS Scroll-driven Animations（依存ゼロの最新技術・tech-decision.md参照）:
+ * - reveal-on-scroll: 要素がビューに入ると立ち上がる（hero見出し・各セクション初出時）
+ * - hero-photo-zoom: hero写真の緩速ズーム（scale 1→1.06）
+ * 非対応ブラウザ / prefers-reduced-motion: reduce では静的表示にフォールバックする。
+ */
+@layer utilities {
+  .reveal-on-scroll {
+    opacity: 1;
+    transform: none;
+  }
+
+  .hero-photo-zoom {
+    transform: scale(1);
+    transform-origin: center;
+  }
+
+  @supports (animation-timeline: view()) {
+    .reveal-on-scroll {
+      animation: reveal-on-scroll-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+
+    .hero-photo-zoom {
+      animation: hero-photo-zoom-in linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal-on-scroll,
+      .hero-photo-zoom {
+        animation: none;
+      }
+    }
+  }
+
+  /* 画像の意匠グレード: 非トピカルな写真をテーマ統一トーンに寄せ「意図的」に見せる。
+     被写体が要る箇所（before/after 実例）には掛けない（実物の色を保つ）。 */
+  .img-duotone {
+    filter: var(--img-filter, saturate(0.92) contrast(1.03));
+  }
+
+  /* モバイル常時CTAバーの基底クラス（tap-to-call・予約を常時1タップに） */
+  .sticky-cta-bar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    min-height: var(--sticky-cta-h);
+    z-index: 40;
+  }
+
+  /* header-01: スクロールで縮む sticky ヘッダ（JS不要・scroll()タイムライン） */
+  .header-shrink {
+    padding-block: var(--space-5);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .header-shrink {
+      animation: header-shrink-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 240px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .header-shrink {
+        animation: none;
+      }
+    }
+  }
+}
+
+@keyframes header-shrink-in {
+  from {
+    padding-block: var(--space-5);
+  }
+  to {
+    padding-block: var(--space-2);
+  }
+}
+
+@keyframes reveal-on-scroll-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes hero-photo-zoom-in {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
