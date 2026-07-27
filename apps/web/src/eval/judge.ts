@@ -1,7 +1,7 @@
 /**
  * 主観40点採点（LLM-judge・plan: parallel-hopping-island）。
  *
- * ai-agent-dev-method.md §6 の二層構成の後半。機械60点（score.ts/diversity.ts）が
+ * docs/design-notes.md §6-2 の二層構成の後半。機械60点（score.ts/diversity.ts）が
  * 「ゲートを通った後に残る品質」の決定的アサーションなのに対し、こちらは
  * トーン一致・コピーの主観品質・総合的な完成度という機械では測れない軸を LLM に採点させる。
  *

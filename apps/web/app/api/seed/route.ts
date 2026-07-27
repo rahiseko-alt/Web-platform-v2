@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const result = await buildSeed();
     return Response.json(result);
   } catch (error) {
-    // 内部エラー詳細はクライアントへ返さずサーバーログに集約（security-runtime エラー隠蔽）
+    // 内部エラー詳細はクライアントへ返さずサーバーログに集約（エラー隠蔽・docs/design-notes.md §4-1）
     console.error('seed failed:', error);
     return Response.json({ error: 'Seed failed' }, { status: 500 });
   }

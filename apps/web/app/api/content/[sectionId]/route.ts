@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const sectionIdParamSchema = z.string().uuid();
 
-// 認証済みだが外部入力を受けるエンドポイントのため個別レートリミット（security-runtime.md準拠）。
+// 認証済みだが外部入力を受けるエンドポイントのため個別レートリミット（docs/design-notes.md §4-2 準拠）。
 // ユーザー別に10秒窓・上限20回（seed-guard.tsより緩め＝編集操作は正常利用でも連投されうるため）。
 const patchLimiter = createFixedWindowLimiter({ max: 20, windowMs: 10_000 });
 
@@ -76,7 +76,7 @@ export async function PATCH(
       });
     return Response.json({ ok: true });
   } catch (error) {
-    // 内部エラー詳細はクライアントへ返さずサーバーログに集約（security-runtime エラー隠蔽）
+    // 内部エラー詳細はクライアントへ返さずサーバーログに集約（エラー隠蔽・docs/design-notes.md §4-1）
     console.error('content patch failed:', error);
     return Response.json({ error: 'Internal error' }, { status: 500 });
   }

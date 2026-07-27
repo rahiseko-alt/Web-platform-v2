@@ -47,7 +47,7 @@ export const SECTION_COUNT_RANGE = { min: 5, max: 9 } as const;
 
 /**
  * 主観40点の内訳（LLM-judge・plan: parallel-hopping-island）。
- * ai-agent-dev-method.md §6 の3軸（デザインの主観品質・トーン一致・金太郎飴判定）に対応する。
+ * docs/design-notes.md §6-2 の3軸（デザインの主観品質・トーン一致・金太郎飴判定）に対応する。
  * 人間較正は未実施のため、このスコアは常に「参考値」として扱う（judge単独運用しない）。
  */
 export const JUDGE_WEIGHTS = {

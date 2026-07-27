@@ -17,9 +17,9 @@ const DEFAULT_ACCENT = '#3b82f6';
  * サイト編集画面（仮説#3・編集境界プロトタイプ、Server Component）。
  * middleware.ts の Cookie 存在チェックは optimistic check のため、ここで
  * requireSiteOwnership により実体のセッション有効性・organization 所有権を再検証する
- * （api-guard.ts の多層防御思想・security-runtime.md IDOR対策準拠）。
+ * （api-guard.ts の多層防御思想・docs/design-notes.md §4-3 IDOR対策準拠）。
  * 所有権チェックに失敗した場合は 403/404/401 いずれも notFound() へ丸める
- * （エラー隠蔽・security-runtime.md 準拠。詳細ステータスはAPI側でのみ区別する）。
+ * （エラー隠蔽・docs/design-notes.md §4-1 準拠。詳細ステータスはAPI側でのみ区別する）。
  */
 export default async function EditorPage({
   params,

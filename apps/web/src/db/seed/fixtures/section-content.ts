@@ -1,6 +1,6 @@
 /**
  * templateId（general-001/general-002）× sectionType（12種）→ サンプルcontent のマップ。
- * design/concept.md §5 のデモ2エグゼンプラ（架空店舗・実在店舗名/人物名は使わない）:
+ * docs/design-notes.md §8 のデモ2エグゼンプラ（架空店舗・実在店舗名/人物名は使わない）:
  * - general-001 = あおば歯科・矯正クリニック（信頼シグナル・WEB予約24時間・院長紹介）
  * - general-002 = salon lumi（世界観・仕上がり・営業時間外WEB予約）
  * 各keyは対応するblock（src/sections/blocks/*.tsx）が読むcontent構造に厳密に合わせている。

@@ -7,7 +7,7 @@ import type { DesignSpec } from '@/templates/types';
  * - centered-logo: ロゴ中央 + ナビを左右に分割配置（別次元の構造）
  * どちらも scroll で縮む sticky ヘッダ（globals.css `.header-shrink`・JS不要）+
  * モバイル常時「予約/電話」CTAバー（`.sticky-cta-bar`・md:hidden）は共通。
- * wireframe.md header-01: 「誰か」を1行で示しつつ、予約/電話を常時1タップに保つ。
+ * docs/design-notes.md §7 header-01: 「誰か」を1行で示しつつ、予約/電話を常時1タップに保つ。
  */
 
 type NavItem = { label: string; href: string };
@@ -147,7 +147,7 @@ export default function Header01({
         )}
       </section>
 
-      {/* モバイル常時CTAバー（wireframe.md モバイル節・全ページ下部に常設）。両骨格共通 */}
+      {/* モバイル常時CTAバー（docs/design-notes.md §7 モバイル常設CTAバー・全ページ下部に常設）。両骨格共通 */}
       <div className="sticky-cta-bar flex items-center gap-2 border-t border-border bg-bg p-2 shadow-[0_-2px_12px_rgba(0,0,0,0.12)] md:hidden">
         <div className="flex-1">
           <Button href={c.ctaHref} size="lg" fullWidth shape={design?.buttonShape}>

@@ -26,7 +26,7 @@ async function patchContent(sectionId: string, key: string, value: string): Prom
     body: JSON.stringify({ key, value }),
   });
   if (!response.ok) {
-    // security-runtime.md エラー隠蔽: サーバーが返す抽象メッセージのみ表示する
+    // エラー隠蔽（docs/design-notes.md §4-1）: サーバーが返す抽象メッセージのみ表示する
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? '保存に失敗しました');
   }

@@ -13,11 +13,8 @@
 import { notFound } from 'next/navigation';
 import { PageRenderer } from '@/render/PageRenderer';
 import { SiteThemeProvider } from '@/render/SiteThemeProvider';
-import { generatePage, type GenerateResult } from '@/generate/generate';
-import { createOpenAiClient } from '@/generate/llm/openai';
-import { cacheKeyFor, getCachedPage, putCachedPage } from '@/generate/cache';
+import { createPageFromBrief } from '@/generate/create-page';
 import { applyOverrides, type DesignOverrides } from '@/generate/overrides';
-import type { GeneratedPage } from '@/generate/types';
 import { DesignControls } from './DesignControls';
 
 export const dynamic = 'force-dynamic';
@@ -74,31 +71,6 @@ function overridesFrom(params: Params): DesignOverrides {
     cardStyle: one(params, 'cardStyle'),
     buttonShape: one(params, 'buttonShape'),
   };
-}
-
-async function loadPage(
-  brief: string,
-): Promise<{ page: GeneratedPage; fromCache: boolean; attempts: number } | { error: string } | { rejected: GenerateResult & { ok: false } }> {
-  const key = cacheKeyFor(brief);
-  const cached = getCachedPage(key);
-  if (cached) return { page: cached, fromCache: true, attempts: 0 };
-
-  let client;
-  try {
-    client = createOpenAiClient();
-  } catch {
-    return { error: 'OPENAI_API_KEY が未設定です（.env に置いてください）' };
-  }
-
-  try {
-    const result = await generatePage({ brief }, client);
-    if (!result.ok) return { rejected: result };
-    putCachedPage(key, result.page);
-    return { page: result.page, fromCache: false, attempts: result.attempts };
-  } catch (error) {
-    console.error('try page generate failed:', error);
-    return { error: '生成に失敗しました（詳細はサーバーログ）' };
-  }
 }
 
 /**
@@ -176,22 +148,32 @@ export default async function TryPage({ searchParams }: { searchParams: Promise<
     );
   }
 
-  const loaded = await loadPage(brief);
+  // 生成手順は単一経路 createPageFromBrief() に集約されている（ロードマップ F-4）。
+  // ここは outcome を画面へ写すだけで、手順そのものは持たない。
+  const outcome = await createPageFromBrief({ brief, useCache: true });
 
-  if ('error' in loaded) {
+  if (outcome.status === 'no-api-key') {
     return (
       <Message brief={brief} color="#c00">
-        {loaded.error}
+        OPENAI_API_KEY が未設定です（.env に置いてください）
       </Message>
     );
   }
 
-  if ('rejected' in loaded) {
+  if (outcome.status === 'failed') {
     return (
       <Message brief={brief} color="#c00">
-        <h2>機械ゲートが {loaded.rejected.attempts} 回とも拒否しました</h2>
+        生成に失敗しました（詳細はサーバーログ）
+      </Message>
+    );
+  }
+
+  if (outcome.status === 'rejected') {
+    return (
+      <Message brief={brief} color="#c00">
+        <h2>機械ゲートが {outcome.attempts} 回とも拒否しました</h2>
         <ul>
-          {loaded.rejected.rejections.map((r, i) => (
+          {outcome.rejections.map((r, i) => (
             <li key={i}>
               <code>{r.path}</code>: {r.reason}
             </li>
@@ -201,13 +183,13 @@ export default async function TryPage({ searchParams }: { searchParams: Promise<
     );
   }
 
-  const { page, motionEffects, ignored } = applyOverrides(loaded.page, overridesFrom(params));
+  const { page, motionEffects, ignored } = applyOverrides(outcome.page, overridesFrom(params));
 
   return (
     <>
       <Bar brief={brief} panelOpen={one(params, 'panel') === '1'}>
         <div style={{ maxWidth: 1100, margin: '8px auto 0', fontSize: 12, color: '#ddd', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <span>{loaded.fromCache ? 'キャッシュから再組み立て（LLM不使用）' : `LLM生成 ${loaded.attempts}回で通過`}</span>
+          <span>{outcome.fromCache ? 'キャッシュから再組み立て（LLM不使用）' : `LLM生成 ${outcome.attempts}回で通過`}</span>
           <span style={{ color: '#9ad' }}>効いている動き: {motionEffects.length > 0 ? motionEffects.join(' / ') : 'なし（静止）'}</span>
           {page.needsReview && <span style={{ color: '#ffd479' }}>要確認: {page.unknowns.join(' / ')}</span>}
         </div>

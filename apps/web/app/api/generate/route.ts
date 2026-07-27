@@ -8,14 +8,13 @@
  * これは STEP1 のローカル開発用ツール（顧客認証不要・マイルストーン1）。
  * OpenAI を叩いて課金が発生する未認証口なので:
  * - 本番（cloud=STEP2）では 404 で塞ぐ。公開のコスト垂れ流し口にしない
- * - 入力は zod で長さ制限（api-validation）
- * - LLM/内部エラーの詳細はクライアントへ返さずログに集約（security-runtime エラー隠蔽）
+ * - 入力は zod で長さ制限（docs/design-notes.md §5）
+ * - LLM/内部エラーの詳細はクライアントへ返さずログに集約（エラー隠蔽・docs/design-notes.md §4-1）
  * レートリミット基盤（Upstash 等）は STEP2 の範囲なのでここでは持たない。
  */
 
 import { z } from 'zod';
-import { generatePage } from '@/generate/generate';
-import { createOpenAiClient } from '@/generate/llm/openai';
+import { createPageFromBrief } from '@/generate/create-page';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,25 +23,32 @@ const BodySchema = z.object({
   maxRetries: z.number().int().min(0).max(4).optional(),
 });
 
+/**
+ * 生成手順そのものは持たない。単一経路 createPageFromBrief() の outcome を HTTP へ写すだけ
+ * （手順の複製を作らない・ロードマップ F-4）。応答の形は従来どおり GenerateResult 互換。
+ */
 async function handle(brief: string, maxRetries?: number): Promise<Response> {
-  let client;
-  try {
-    client = createOpenAiClient();
-  } catch {
-    // キー未設定は運用ヒントとして返してよい（秘匿値そのものは含まない）
-    return Response.json(
-      { error: 'OPENAI_API_KEY が未設定です。.env にキーを置いてください（AI は .env を読めません）。' },
-      { status: 503 },
-    );
-  }
+  const outcome = await createPageFromBrief({ brief, maxRetries, useCache: false });
 
-  try {
-    const result = await generatePage({ brief }, client, maxRetries != null ? { maxRetries } : {});
-    return Response.json(result);
-  } catch (error) {
-    // OpenAI のエラー本文にはプロンプト等が混ざりうるため、そのまま返さない
-    console.error('generate failed:', error);
-    return Response.json({ error: '生成に失敗しました' }, { status: 502 });
+  switch (outcome.status) {
+    case 'ok':
+      return Response.json({
+        ok: true,
+        page: outcome.page,
+        attempts: outcome.attempts,
+        expanded: outcome.expanded,
+      });
+    case 'rejected':
+      return Response.json({ ok: false, rejections: outcome.rejections, attempts: outcome.attempts });
+    case 'no-api-key':
+      // キー未設定は運用ヒントとして返してよい（秘匿値そのものは含まない）
+      return Response.json(
+        { error: 'OPENAI_API_KEY が未設定です。.env にキーを置いてください（AI は .env を読めません）。' },
+        { status: 503 },
+      );
+    case 'failed':
+      // OpenAI のエラー本文にはプロンプト等が混ざりうるため、そのまま返さない（詳細はログ）
+      return Response.json({ error: '生成に失敗しました' }, { status: 502 });
   }
 }
 

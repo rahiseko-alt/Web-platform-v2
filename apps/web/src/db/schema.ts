@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, timestamp, integer, jsonb, unique, boolean } from 'drizzle-orm/pg-core';
 
 /**
- * データモデル階層（docs/architecture-decision-0.md §1 準拠）
+ * データモデル階層（docs/design-notes.md §1 準拠）
  * users -> organizations -> sites -> pages -> sections -> content_entries
  */
 

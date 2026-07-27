@@ -4,13 +4,13 @@ import { db } from '@/db';
 import { organizations, sections, sites } from '@/db/schema';
 
 /**
- * session取得 + organization所有権チェックの共通ヘルパー（IDOR対策・security-runtime.md準拠）。
+ * session取得 + organization所有権チェックの共通ヘルパー（IDOR対策・docs/design-notes.md §4-3 準拠）。
  * middleware.ts のCookie存在チェックは optimistic check のため、ここで実体のセッション有効性と
  * 「リソースの organization を誰が createdBy したか」を必ず再検証する（seed-guard.ts と同じ多層防御思想）。
  *
  * 所有権の主体判定: organizations にメンバー中間テーブルが存在しないため、
  * `organizations.createdBy === session.user.id` の単純一致で判定する
- * （メンバー招待機能は本フェーズのスコープ外・plan `stateful-painting-pebble.md` Step2 前提）。
+ * （メンバー招待機能は本フェーズのスコープ外・docs/design-notes.md §9）。
  */
 
 export type OwnershipResult =
