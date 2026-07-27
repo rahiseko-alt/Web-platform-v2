@@ -4,7 +4,7 @@ import { PRIMITIVE_BUILD } from './version';
 export type ContainerProps = {
   children: ReactNode;
   className?: string;
-  /** true = フルブリード（写真を端まで・design-system.md --bleed-max）。既定はfalseで現状挙動維持 */
+  /** true = フルブリード（写真を端まで・docs/design-notes.md §7 --bleed-max）。既定はfalseで現状挙動維持 */
   bleed?: boolean;
 };
 

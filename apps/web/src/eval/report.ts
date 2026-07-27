@@ -1,5 +1,5 @@
 /**
- * 評価結果の集計と提示（ai-agent-dev-method §7「テストケース×項目のマトリクス」）。
+ * 評価結果の集計と提示（docs/design-notes.md §6-3「テストケース×項目のマトリクス」）。
  *
  * 渡され方は2経路:
  * - JSON: Claude が読んで落ちたケースを特定し、エラー分析へ回す
@@ -178,7 +178,7 @@ export function buildMatrixMarkdown(run: EvalRun): string {
     if (run.grandScore != null) {
       scoreLines.push(`**合計(未較正): ${run.grandScore} / ${run.grandMax}**（合格線${PASS_LINE}）`);
     }
-    captionLine = '> judge は人間較正前の参考値（judge単独運用しない・ai-agent-dev-method.md §6）。最終合否はマスターの目視確認を要する。';
+    captionLine = '> judge は人間較正前の参考値（judge単独運用しない・docs/design-notes.md §6-2）。最終合否はマスターの目視確認を要する。';
   } else {
     captionLine = `> 合格線${PASS_LINE}は主観40（LLM-judge）との合算で判定する。この表だけでは合否は出ない。`;
   }

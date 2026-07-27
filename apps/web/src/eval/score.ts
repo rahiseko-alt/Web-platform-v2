@@ -26,7 +26,7 @@ export interface ScoreDetail {
   label: string;
   score: number;
   max: number;
-  /** なぜ減点されたか。エラー分析（ai-agent-dev-method §5）で人が読む */
+  /** なぜ減点されたか。エラー分析（docs/design-notes.md §6-3）で人が読む */
   notes: string[];
 }
 

@@ -23,7 +23,7 @@ export default function LoginPage() {
     const { error: signInError } = await authClient.signIn.email({ email, password });
     setPending(false);
     if (signInError) {
-      // security-runtime.md エラー隠蔽: メール/パスワードどちらが誤りかを区別せず抽象化する
+      // エラー隠蔽（docs/design-notes.md §4-1）: メール/パスワードどちらが誤りかを区別せず抽象化する
       setError('メールアドレスまたはパスワードが正しくありません');
       return;
     }

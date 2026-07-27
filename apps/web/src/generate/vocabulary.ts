@@ -6,7 +6,7 @@
  * ため、台帳・プロンプト・検証の三者が乖離しない。
  *
  * 設計上の要点: 台帳に無い値は LLM に作らせない。これが金太郎飴脱却の関門
- * （docs/ai-agent-dev-method.md §3・LLM は要素の値だけを選び、組み立ては機械が行う）。
+ * （docs/design-notes.md §6-1・LLM は要素の値だけを選び、組み立ては機械が行う）。
  */
 
 import type { ButtonShape, CardStyle, GridAlign, HeroVariant, SectionRhythm } from '@/templates/types';

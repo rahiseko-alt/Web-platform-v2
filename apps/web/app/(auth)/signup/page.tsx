@@ -6,7 +6,7 @@ import { authClient } from '@/auth/client';
 
 /**
  * 最小限の email/password サインアップフォーム（仮説#2実機検証用）。
- * organization紐付けは今回スコープ外（ユーザー登録のみ。memory.md指示に準拠）。
+ * organization紐付けは今回スコープ外（ユーザー登録のみ。docs/design-notes.md §9）。
  */
 export default function SignupPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function SignupPage() {
     const { error: signUpError } = await authClient.signUp.email({ name, email, password });
     setPending(false);
     if (signUpError) {
-      // security-runtime.md エラー隠蔽: サーバー側の詳細（重複email等）をそのまま出さず抽象化する
+      // エラー隠蔽（docs/design-notes.md §4-1）: サーバー側の詳細（重複email等）をそのまま出さず抽象化する
       setError('登録に失敗しました。入力内容をご確認ください');
       return;
     }

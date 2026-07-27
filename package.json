@@ -13,7 +13,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "audit": "pnpm audit --audit-level moderate",
-    "verify:roadmap": "node scripts/verify-roadmap-evidence.mjs"
+    "verify:roadmap": "node scripts/verify-roadmap-evidence.mjs",
+    "verify:doc-refs": "node scripts/verify-doc-refs.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

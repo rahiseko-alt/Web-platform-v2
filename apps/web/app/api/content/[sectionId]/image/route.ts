@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
-// アップロードは重い処理のため個別レートリミット（security-runtime.md準拠）。
+// アップロードは重い処理のため個別レートリミット（docs/design-notes.md §4-2 準拠）。
 // PATCH（テキスト/色）より厳しめに設定。
 const uploadLimiter = createFixedWindowLimiter({ max: 5, windowMs: 10_000 });
 

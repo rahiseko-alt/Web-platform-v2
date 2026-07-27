@@ -4,7 +4,7 @@
  * B稼働順序: 入力 → プロンプト+情報をLLMへ → LLM判断 → 機械制御ゲート →
  *   拒否なら差し戻して再試行 / 許可なら機械が組み立て → 出力。
  *
- * 原則（docs/ai-agent-dev-method.md §3 / plan constraint）:
+ * 原則（docs/design-notes.md §6-1 / plan constraint）:
  * - LLM が返すのは要素の値だけ。組み立て（id/order 採番）は validate.ts が行う
  * - 失敗を黙って握りつぶさない。JSON でない・台帳外は rejection として表に出し差し戻す
  * - 既定値での無音フォールバックはしない（評価が回らなくなるため）

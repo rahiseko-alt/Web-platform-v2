@@ -46,6 +46,9 @@ jobs:
       - name: Verify roadmap evidence (外部事実のみ)
         run: node scripts/verify-roadmap-evidence.mjs
 
+      - name: Verify doc refs (設計根拠のリンク切れ検出)
+        run: node scripts/verify-doc-refs.mjs
+
   smoke:
     name: 起動スモーク (build → start → curl 200 + marker)
     runs-on: ubuntu-latest

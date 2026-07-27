@@ -1,5 +1,5 @@
 /**
- * テンプレート構造（docs/architecture-decision-0.md §2 準拠）。
+ * テンプレート構造（docs/design-notes.md §2 準拠）。
  * HTML複製ではなくJSON設定データ + コンポーネントレジストリで生成する。
  */
 

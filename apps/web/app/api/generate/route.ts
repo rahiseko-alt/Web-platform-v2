@@ -8,8 +8,8 @@
  * これは STEP1 のローカル開発用ツール（顧客認証不要・マイルストーン1）。
  * OpenAI を叩いて課金が発生する未認証口なので:
  * - 本番（cloud=STEP2）では 404 で塞ぐ。公開のコスト垂れ流し口にしない
- * - 入力は zod で長さ制限（api-validation）
- * - LLM/内部エラーの詳細はクライアントへ返さずログに集約（security-runtime エラー隠蔽）
+ * - 入力は zod で長さ制限（docs/design-notes.md §5）
+ * - LLM/内部エラーの詳細はクライアントへ返さずログに集約（エラー隠蔽・docs/design-notes.md §4-1）
  * レートリミット基盤（Upstash 等）は STEP2 の範囲なのでここでは持たない。
  */
 

@@ -115,6 +115,7 @@ pnpm -r test                        # Vitest 実テスト（0 件・ダミーで
 pnpm -r build
 pnpm audit --audit-level moderate   # 依存の脆弱性ゲート（moderate 以上で落ちる）
 node scripts/verify-roadmap-evidence.mjs  # roadmap の evidence が外部事実か機械検査
+node scripts/verify-doc-refs.mjs          # コードが引用する設計根拠のリンク切れを機械検査
 ```
 
 - テストも lint も**本物**だけを置く。`echo` による見かけの成功は偽の緑として扱い、禁止。

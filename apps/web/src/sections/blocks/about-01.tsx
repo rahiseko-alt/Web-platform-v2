@@ -24,7 +24,7 @@ function parseContent(content: Record<string, unknown>): AboutContent {
 }
 
 /**
- * 骨格A: フルブリード人物写真の帯 + テキストを版面に食い込ませる（重なり）。院長/オーナーの顔＝信頼シグナル（wireframe.md about-01 節）。
+ * 骨格A: フルブリード人物写真の帯 + テキストを版面に食い込ませる（重なり）。院長/オーナーの顔＝信頼シグナル（docs/design-notes.md §7）。
  * 重なりカードは独自の浮遊感（半透明・強シャドウ）が意匠上の要のため、Card プリミティブ化はしない
  * （既定variantの見た目は変更しない要件・cardStyle軸はsplit-portrait側で担う）。
  */

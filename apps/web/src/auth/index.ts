@@ -4,7 +4,7 @@ import { db } from '../db';
 import * as schema from '../db/schema';
 
 /**
- * フェーズ1: email/password のみ（docs/architecture-decision-0.md §4 権限構造準拠。マスター確定でOAuthは今回スコープ外）。
+ * フェーズ1: email/password のみ（docs/design-notes.md §3 権限構造準拠。マスター確定でOAuthは今回スコープ外）。
  * usePlural: true — 既存スキーマの命名規約（複数形テーブル名: users/sessions/accounts/verifications）に
  * Better Auth 側のモデル名（user/session/account/verification）を合わせるため。
  * schema を明示指定し、drizzle-adapter が `../db/schema` のテーブルオブジェクトを解決できるようにする。
@@ -21,7 +21,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  // signup/login は認証不要エンドポイントのためレートリミット必須（security-runtime.md準拠）。
+  // signup/login は認証不要エンドポイントのためレートリミット必須（docs/design-notes.md §4-2 準拠）。
   // better-auth は既定で /sign-in, /sign-up, /change-password, /change-email に window:10s max:3 の
   // special rule を内蔵するが、既定では production 環境でのみ有効なため、
   // dev/Windows実機検証でも機能させるため enabled を明示的に true にする。

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * content_entries 編集用の zod スキーマ群（api-validation.md準拠・safeParse採用）。
+ * content_entries 編集用の zod スキーマ群（docs/design-notes.md §5 準拠・safeParse採用）。
  * 本フェーズ（仮説#3）はテキスト・アクセントカラーのsectionスコープ編集に限定する。
  */
 
