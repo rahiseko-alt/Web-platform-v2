@@ -117,13 +117,13 @@
 {
   "meta": {
     "title": "web-platform-v2：希望を伝えるとLPが完成するSaaS",
-    "active": "F-1",
-    "next": "F-1（コードが引用する設計根拠への参照を解決し、リンク切れを機械検出できるようにする）から着手し、F-2/F-3（孤立・使い捨てコードの除去）、F-4（生成経路の単一化）まで片付けてから、A-2（ログイン・セッション確立の検証）へ戻る。",
+    "active": "A-2",
+    "next": "A-2（作成したアカウントでログインでき、セッションが確立することを実際に1回確認する）へ戻って着手する。F（増築の土台）は4葉ともCI緑で完了済みのため、B（生成フロー接続）の前提は外れている。",
     "handoff": {
-      "done": "白紙テンプレから、web-platform-v2（AI LP生成SaaS）の原子ツリーを作成した。ゴール『希望を伝えるとLPが完成し、3回以内の反復で満足水準（80点）に到達でき、修正もできるSaaSが本番で動いている』を、A認証の土台／B生成とスコア提示／C満足へ至る反復／D公開表示／E本番稼働の5本に分解。マスターの決定：①満足の基準＝機械60点+judge40点の合計80点に3回以内の反復で到達（初回50点台→2回目70点台→3回目80点の軌道が汎用的に成立すること）。②誤差を埋める主手段＝AI指示の出し直し（依頼文を直して再生成）と要素組み換え（overrides.ts、LLM再呼び出し無し）の2つ（直接テキスト編集は満足に至る主経路にしない）。最初10葉で作成→マスター指摘を受け、AGENTS.mdの決定的判定（verifyが独立して落ちうる受入事実を2つ以上含むか）を全葉に当て直し、A-1（サインアップ/ログイン/未ログイン拒否の3事実混在）とA-2（未ログイン拒否/IDOR拒否の2事実混在）、B-1（生成/永続化の2事実混在）とB-2（機械採点/judge採点の2事実混在。judge.tsがjudgeFailureを機械採点と独立に扱っている設計自体が根拠）を分割し14葉に再確定。C-2/D-1/E-1は『反映＋LLM不使用』『200＋マーカー』のような単一メカニズムの複合アサーションとして1事実のまま維持（typecheck&&lint&&testと同型の除外パターン）。E-2（本番一連）は機械的には分割対象になり得るが、A〜Dで個別検証済みのロジックが本番設定下でも壊れないかを見る性質の異なる統合ゲートと判断し1事実で維持（要再確認としてマスターに明示済み）。A-1（サインアップ）に着手：開発サーバー起動→1回目の独立検証はPGliteにdrizzleマイグレーション未適用でHTTP 500・FAIL→pnpm db:pushでスキーマ適用→2回目の独立検証でPASS（プロセス再起動・独立プロセスからの直接クエリで永続化を確認、docs/verification/A-1-signup.md）。A-1をdone化。",
-      "trouble": "1件：ローカル開発環境（apps/web）にPGliteのDBマイグレーションが未適用のまま起動していたため、サインアップAPIが`relation \"users\" does not exist`でHTTP 500になった。`pnpm db:push`で解消。今後ローカルで葉を検証する前は、事前にdb:pushでスキーマが最新か確認する。"
+      "done": "チェックイン後、マスターの指摘『スパゲッティコードになっていないか』を調査し、その結果を新しい状態F（増築の土台）としてツリーへ追加したうえで4葉すべてを実装・CI緑まで完了させた。調査の実測：src→appの層の逆流0件／as any・@ts-ignore・@ts-expect-error 0件／TODO・FIXME 0件で、現時点ではスパゲッティではないと結論。ただしBブロックの増築で崩れる火種を3点検出し、マスターの判断（選択肢A）でBの前提として先に片付けた。F-1：実在しないドキュメントを準拠元として引用する箇所が29件（目視grepでは23件と誤って数えたため機械で数え直した）。原文はgit全履歴にも存在せず復元不能のため、推測で書き起こさずdocs/design-notes.md（現行コードから検証できる事実だけの索引・失われた事実自体も明記）を新設して張り替え、scripts/verify-doc-refs.mjsをCIへ組み込んだ。F-2：importer 0件の孤立パッケージpackages/ui（@repo/ui）を削除（buildがechoでAGENTS.md禁止の偽の緑でもあった）。F-3：自ら『使い捨て・恒久実装ではない』と宣言していたapp/preview-proto（3ページ564行・参照0件）を削除。F-4：app/tryとapp/api/generateが別実装で持っていた生成手順をsrc/generate/create-page.ts（createPageFromBrief）へ集約し、入口が手順を再実装したら赤くなる構造ガードテストを追加（B-1はこの関数の上に乗せる）。F-1のリンタとF-4の構造ガードは、いずれも故意に壊すと赤・戻すと緑になることを実地で確認済み（常に緑を返す偽の検査ではない）。テストは114→123件。CI run 30231855991 で quality（doc-refs含む）/ smoke / ci-green すべてsuccess。",
+      "trouble": "2件。①目視のgrepで参照件数を23件と数えて報告したが、機械リンタで数え直すと29件だった（数は機械に数えさせる）。②app/preview-proto削除直後のローカルtypecheckが、ソースではなく.next/typesの古い生成物だけを理由にexit 2で落ちた。pnpm -r buildで型定義を再生成すれば緑（CIはクリーンチェックアウトのため影響なし）。両件ともdocs/failures.mdへ追記済み。"
     },
-    "updated": "2026-07-26"
+    "updated": "2026-07-27"
   },
   "nodes": [
     { "id":"G", "kind":"state",
@@ -251,22 +251,22 @@
               "theme":"コードが引用している設計根拠に、実際に辿り着ける",
               "meaning":"『なぜこう作ったのか』を後から誰でも確かめられる",
               "detail":"1事実：参照の解決可能性。src/・app/配下の23ファイルが docs/ai-agent-dev-method.md（§3/§5/§6/§7を名指し）・docs/architecture-decision-0.md・security-runtime.md・api-validation・plan stateful-painting-pebble.md を準拠元として引用しているが、docs/ に存在せず git 全履歴にも一度も存在しない（前リポジトリからコードのみ移送された）。根拠に辿り着けないと、将来の変更が『準拠しているか』を検証できないまま積み上がる。復元不可のため、根拠を本リポジトリ内に置き直すか参照を実在物へ張り替えるかは作業側で選ぶ。",
-              "criteria": [ { "text":"コード内から参照される設計根拠ドキュメントが全て実在し、リンク切れが機械で検出される", "verify":"参照を機械抽出して実在検査するスクリプトをCIに組み込み、緑になることを確認する。あわせて故意にリンクを1つ壊すと赤になることも確認する（常に緑を返す偽のリンタでないことの確認）", "evidence":"" } ] },
+              "criteria": [ { "text":"コード内から参照される設計根拠ドキュメントが全て実在し、リンク切れが機械で検出される", "verify":"参照を機械抽出して実在検査するスクリプトをCIに組み込み、緑になることを確認する。あわせて故意にリンクを1つ壊すと赤になることも確認する（常に緑を返す偽のリンタでないことの確認）", "evidence":"https://github.com/rahiseko-alt/Web-platform-v2/actions/runs/30231855991" } ] },
             { "id":"F-2", "kind":"state",
               "theme":"どこからも使われていないパッケージ packages/ui が無くなっている",
               "meaning":"誰も使っていない部品が居座って紛らわしくならない",
               "detail":"1事実：孤立パッケージの除去。packages/ui（@repo/ui）は apps/web/package.json の依存に記載すら無く importer 0件の完全孤立で、中身は apps/web/src/components/primitives/Button.tsx と役割が重複する Button。テンプレの残骸。pnpm-workspace 定義とCIの pnpm -r（全パッケージ横断）に触れるため、F-3（アプリ内ルートの削除）とは独立して落ちうる。",
-              "criteria": [ { "text":"packages/ui が存在せず、ワークスペース全体のチェック（typecheck/lint/test/build）が緑のまま", "verify":"packages/ui とワークスペースからの参照を削除し、pnpm -r の typecheck/lint/test/build がCIで緑になることを確認する", "evidence":"" } ] },
+              "criteria": [ { "text":"packages/ui が存在せず、ワークスペース全体のチェック（typecheck/lint/test/build）が緑のまま", "verify":"packages/ui とワークスペースからの参照を削除し、pnpm -r の typecheck/lint/test/build がCIで緑になることを確認する", "evidence":"https://github.com/rahiseko-alt/Web-platform-v2/actions/runs/30231855991" } ] },
             { "id":"F-3", "kind":"state",
               "theme":"使い捨てと明記されたプロトタイプ app/preview-proto が無くなっている",
               "meaning":"実験用の作りかけページが本番に紛れ込まない",
               "detail":"1事実：使い捨てルートの除去。app/preview-proto/ の3ページ（564行）は自身のコメントで『STEP1ステップ2の使い捨てプロトタイプ・恒久実装ではない』と宣言しており参照0件。DesignSpecとcontentをハードコードして既存レンダラへ流す実験専用ルートで、残したまま本番に出れば公開ルートとして到達可能になる。F-2（ワークスペース構成）とは別レイヤー（Next.jsのルート定義）。",
-              "criteria": [ { "text":"app/preview-proto が存在せず、ワークスペース全体のチェックが緑のまま", "verify":"app/preview-proto を削除し、pnpm -r の typecheck/lint/test/build がCIで緑になることを確認する（参照0件なので何も壊れないことが緑で裏付けられる）", "evidence":"" } ] },
+              "criteria": [ { "text":"app/preview-proto が存在せず、ワークスペース全体のチェックが緑のまま", "verify":"app/preview-proto を削除し、pnpm -r の typecheck/lint/test/build がCIで緑になることを確認する（参照0件なので何も壊れないことが緑で裏付けられる）", "evidence":"https://github.com/rahiseko-alt/Web-platform-v2/actions/runs/30231855991" } ] },
             { "id":"F-4", "kind":"state",
               "theme":"生成から組み立てまでの手順が、1本の経路に集約されている",
               "meaning":"同じ処理をあちこちに書き写さずに済む",
               "detail":"1事実：生成経路の単一化。現在 app/try/page.tsx が『生成→キャッシュ→overrides適用→レンダリング』を、app/api/generate/route.ts が同手順の部分集合を、それぞれ別実装で持つ。この状態でB-1/B-2（認証済みフロー接続）を足すと同じ組み立てが3箇所へ複製される。複製が2箇所のうちに src/generate 配下の単一関数へ引き上げ、両入口がそれを呼ぶ形にしておく。B-1はこの関数の上に乗せる（B.deps=F）。",
-              "criteria": [ { "text":"生成〜組み立ての手順が src/generate 配下の単一関数に集約され、app/try と app/api/generate の双方がその関数を呼ぶ（同手順の複製が無い）", "verify":"集約後、両入口が同一関数を呼んでおり手順の複製が残っていないことを確認したうえで、既存テストを含むワークスペース全体のチェックがCIで緑になることを確認する", "evidence":"" } ] }
+              "criteria": [ { "text":"生成〜組み立ての手順が src/generate 配下の単一関数に集約され、app/try と app/api/generate の双方がその関数を呼ぶ（同手順の複製が無い）", "verify":"集約後、両入口が同一関数を呼んでおり手順の複製が残っていないことを確認したうえで、既存テストを含むワークスペース全体のチェックがCIで緑になることを確認する", "evidence":"https://github.com/rahiseko-alt/Web-platform-v2/actions/runs/30231855991" } ] }
           ] }
       ] }
   ]
