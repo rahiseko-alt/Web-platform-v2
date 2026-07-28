@@ -23,8 +23,10 @@ import { test, expect, type Page, type BrowserContext } from '@playwright/test';
  * B-2-a の判定はここでは完結しない。画面から見えるのは「画面に出た」ことだけで、
  * 稼働中プロセスのメモリを見せているのか保存先に残ったのかを区別できないため、
  * ここでは事実を .b2-result.json へ書き出すに留め、**サーバー停止後に別プロセス**で
- * scripts/verify-b2-persistence.mjs が保存先を直接読んで判定する（PGlite は単一プロセス専有なので
- * 稼働中に横から読むことはできない: docs/verification/A-4-idor-reject.md で実測済み）。
+ * scripts/verify-b2-persistence.mjs が保存先を直接読んで判定する。
+ * 停止は「ワークフローのステップ分離＋Playwright の webServer 終了＋実行前の到達性チェック」で
+ * 担保する（⚠ PGlite は同じ dataDir を稼働中でも別プロセスから開けるため、『読めたこと』は
+ * 停止の証拠にならない。独立検証者が pglite 0.5.4 で実測済み）。
  */
 
 const OUTPUT_PATH = path.join(__dirname, '.b2-result.json');
@@ -54,8 +56,13 @@ async function signUp(context: BrowserContext, email: string): Promise<void> {
 /**
  * 実際のログイン画面からログインする（API でトークンを取って差し込まない）。
  * B-2-b-1 の受入はこの「着地した画面」そのものなので、実フローで作らないと意味が無い。
+ *
+ * 先に cookie を捨てるのは、サインアップ（better-auth の autoSignIn が既定 true）が発行した
+ * セッションを持ち越さないため。捨てないと、以降の /editor が「サインアップ由来のセッション」で
+ * 通ってしまい、**ログインが壊れていても着地できる**ので B-2-b-1 の証明にならない。
  */
 async function loginViaForm(page: Page, email: string): Promise<void> {
+  await page.context().clearCookies();
   await page.goto('/login');
   await page.getByPlaceholder('email').fill(email);
   await page.getByPlaceholder('password').fill(PASSWORD);
@@ -169,6 +176,17 @@ test.describe('B-2: 生成されたLPが自分の所有物として保存され�
     const listAfterTwo = await listedSiteIds(pageA);
     expect(listAfterTwo, '2件目を作ったら1件目が一覧から消えた（上書きされている）').toContain(a1.siteId);
     expect(listAfterTwo, '2件目が一覧に並んでいない').toContain(a2.siteId);
+
+    // siteId が合っているだけでは「そのサイトが並んでいる」と言い切れない（IDは正しいが表示は
+    // 別サイトの名前、という壊れ方を拾えない）。その回限りの目印が画面に出ていることまで見る。
+    await expect(
+      pageA.getByText(markA1, { exact: false }).first(),
+      '1件目の目印が一覧に表示されていない',
+    ).toBeVisible();
+    await expect(
+      pageA.getByText(markA2, { exact: false }).first(),
+      '2件目の目印が一覧に表示されていない',
+    ).toBeVisible();
 
     // ---- 利用者B（別ブラウザコンテキスト＝Aのセッションを引き継がない）----
     const contextB = await browser.newContext();

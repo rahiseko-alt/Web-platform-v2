@@ -84,9 +84,23 @@ jobs:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'ci-only-not-a-production-secret-000000' }}
         run: pnpm --filter web e2e:b2
 
-      # ここが B-2-a の判定本体。**上の step が終わって webServer が停止したあと**に走るので、
-      # PGlite（単一プロセス専有）を別プロセスから開ける＝サーバーが落ちても残っていることの証明になる。
-      # 稼働中に読もうとすると開けないので、この順序を入れ替えないこと。
+      # ⚠ 「PGlite は単一プロセス専有だから、読めたこと自体が停止の証拠」は**誤り**
+      #   （pglite 0.5.4 では稼働中でも別プロセスから同じ dataDir を開けることを実測済み）。
+      #   停止は次の2つで担保する：(a) E2E とこの検証を別ステップ＝別プロセスに分け、Playwright の
+      #   webServer が E2E 終了時に pnpm start を終了させる (b) 下の到達性チェックで実際に確認する。
+      - name: サーバーが停止していることを確認 (まだ生きていたら落とす)
+        run: |
+          # 接続できないとき curl は %{http_code} に 000 を出す。それ以外＝まだ応答している。
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:3000 || true)
+          if [ "$code" != "000" ]; then
+            echo "FAIL: サーバーがまだ応答しています (HTTP $code)。"
+            echo "この状態で保存先を読むと、稼働中プロセスと同じ状態を見ているだけになり永続化の証明にならない。"
+            exit 1
+          fi
+          echo "OK: localhost:3000 は応答なし（サーバー停止済み）"
+
+      # ここが B-2-a の判定本体。上の step で停止を確認したあと、別プロセスから保存先を直読みする。
+      # 順序を入れ替えないこと（稼働中に読むと永続化の証明にならない）。
       - name: B-2-a 保存の確認 (サーバー停止後・別プロセスから保存先を直読み)
         run: pnpm --filter web verify:b2
 

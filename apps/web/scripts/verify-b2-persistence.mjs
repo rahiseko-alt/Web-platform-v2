@@ -4,9 +4,17 @@
  *
  * **このスクリプトはアプリのサーバーを停止したあとに、別プロセスとして走らせること。**
  * 画面が出ていることと保存されたことは別物で、稼働中プロセスのメモリを見せているだけでも
- * 画面は同じように見える。ローカル/CI の保存先は PGlite ＝ 単一プロセス専有なので、
- * 稼働中サーバーと同時に横から読むことはできない（docs/verification/A-4-idor-reject.md で実測済み）。
- * 逆に言えば「読めた」こと自体が、サーバーが落ちてもデータが残っている証拠になる。
+ * 画面は同じように見える。
+ *
+ * 停止をどう担保しているか（ここを取り違えると証拠が崩れる）:
+ *   ワークフローで E2E とこの検証を**別ステップ＝別プロセス**に分け、Playwright の webServer が
+ *   E2E 終了時に `pnpm start` を終了させる（playwright.b2.config.ts で CI は reuseExistingServer:false）。
+ *   さらに実行前に到達性を確認し、まだ生きていれば落とす（b2-persist-smoke.yml）。
+ *
+ * ⚠ 「PGlite は単一プロセス専有だから、読めたこと自体が停止の証拠」というのは**誤り**。
+ *   独立検証者が pglite 0.5.4 で実測し、書き込みプロセスが生きたまま別プロセスから同じ dataDir を
+ *   開いて読めることを確認している。停止は上記の手段で担保するのであって、読めたことでは証明できない。
+ *   （この誤った不変条件に寄りかかると「読めたから停止していた」と誤って evidence を組み立てる。）
  *
  * 入力は tests/e2e/authed-persist.spec.ts が書き出した .b2-result.json（画面で観測した事実）。
  * ここではそれと保存先の中身を突き合わせる。落ちた理由は必ず1行で出す（CI ログが evidence の一部になる）。
@@ -85,7 +93,7 @@ async function main() {
 
       // セクションが画面と同じ種類・同じ並びで残っていること
       const { rows: sectionRows } = await db.query(
-        `SELECT section_type FROM sections WHERE site_id = $1 ORDER BY "order" ASC`,
+        `SELECT id, section_type FROM sections WHERE site_id = $1 ORDER BY "order" ASC`,
         [site.siteId],
       );
       const storedTypes = sectionRows.map((s) => s.section_type);
@@ -96,16 +104,40 @@ async function main() {
 
       // (1) 同一性の照合：画面に出ていた見出しの文言が、保存された文言の中に実在すること。
       // 骨組みだけの空の行や、たまたま別のサイトが1件ある状態では通らない。
+      //
+      // ⚠ 空文字を先に弾く。''.includes('') は常に true なので、観測側の headline が空だと
+      //   この照合は無条件で通ってしまう（独立検証者が実測で確認した偽の緑の経路）。
+      check(
+        typeof site.headline === 'string' && site.headline.trim().length > 0,
+        `${label}: site ${site.siteId} の観測結果に見出しが無い（空だと同一性の照合が素通りする）`,
+      );
+
       const { rows: entryRows } = await db.query(
-        `SELECT value FROM content_entries WHERE site_id = $1`,
+        `SELECT section_id, value FROM content_entries WHERE site_id = $1`,
         [site.siteId],
       );
       const storedTexts = entryRows
         .map((entry) => (typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value)))
         .join('\n');
       check(
-        storedTexts.includes(site.headline),
+        site.headline.trim().length > 0 && storedTexts.includes(site.headline),
         `${label}: site ${site.siteId} で画面に出ていた見出し「${site.headline}」が保存先の文言に見当たらない`,
+      );
+
+      // (2) criteria は「全セクションの文言」が残ることを要求している。見出し1本だけの照合だと、
+      // 各セクションの文言を空で保存する実装でも緑になる。全セクションに中身があることまで見る。
+      const sectionIdsWithText = new Set(
+        entryRows
+          .filter((entry) => {
+            const value = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value ?? '');
+            return value.trim().length > 0;
+          })
+          .map((entry) => entry.section_id),
+      );
+      const emptySections = sectionRows.filter((row) => !sectionIdsWithText.has(row.id));
+      check(
+        sectionRows.length > 0 && emptySections.length === 0,
+        `${label}: site ${site.siteId} に文言が1つも保存されていないセクションが ${emptySections.length} 件ある（全 ${sectionRows.length} 件中）`,
       );
     }
   }
