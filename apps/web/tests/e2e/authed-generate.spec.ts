@@ -29,7 +29,14 @@ function uniqueEmail(): string {
 const PASSWORD = 'B1GenerateVerify123!';
 
 test.describe('B-1: 認証済みフローでの生成', () => {
-  test.skip(!process.env.OPENAI_API_KEY, 'OPENAI_API_KEY 未設定のため実LLM検証をスキップ');
+  // スキップ経路を残さない。キーが無いのに「緑」に見える状態を作らないため、
+  // 未設定は**テストの失敗**として扱う（ワークフロー側の SKIP-AS-FAIL と二重に閉じる）。
+  test.beforeAll(() => {
+    expect(
+      process.env.OPENAI_API_KEY,
+      'OPENAI_API_KEY が未設定です。このテストは実LLMでの受入検証なのでスキップせず落とします。',
+    ).toBeTruthy();
+  });
 
   test('未ログインで /generate へ行くとログイン画面へ誘導される（対照実験）', async ({ page }) => {
     // 「常に生成できる」実装ではないこと＝認証が実際に効いていることの対照。
@@ -54,15 +61,26 @@ test.describe('B-1: 認証済みフローでの生成', () => {
     await page.getByRole('button', { name: 'ログイン' }).click();
     await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 });
 
-    // ここが本題：ログイン中に依頼文を送る。
-    await page.goto(`/generate?brief=${encodeURIComponent(BRIEF)}`, {
-      timeout: GENERATE_TIMEOUT_MS,
-    });
+    // ここが本題：ログイン中に**実際の送信UIから**依頼文を送る。
+    // クエリを直接叩く（page.goto('/generate?brief=...')）と、textarea の name 改名・
+    // 送信ボタンの破損・form の action ずれが起きても緑のままになる。
+    // criteria は「依頼文を"送信"すると」なので、送信経路そのものを通す。
+    await page.goto('/generate');
+    await page.getByPlaceholder('どんなサイトが欲しいか').fill(BRIEF);
+    await Promise.all([
+      page.waitForURL((url) => url.searchParams.get('brief') === BRIEF, {
+        timeout: GENERATE_TIMEOUT_MS,
+      }),
+      page.getByRole('button', { name: '生成' }).click(),
+    ]);
 
     // 生成結果が返ったことを data 属性で判定する。
     const result = page.locator('[data-generate-status="ok"]');
     await expect(result).toBeVisible({ timeout: GENERATE_TIMEOUT_MS });
     await expect(page.locator('[data-generated-page="generated-page"]')).toHaveCount(1);
+
+    // キャッシュの再表示では受入としない。**実際にLLMを呼んだ**ことを要求する。
+    await expect(result).toHaveAttribute('data-generate-from-cache', 'false');
 
     // 「枠だけ出た」で緑にしない。実際にセクションが描画されていることまで見る。
     const sections = page.locator('[data-section-type]');

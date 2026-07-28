@@ -127,7 +127,16 @@ export default async function GeneratePage({ searchParams }: { searchParams: Pro
           {outcome.fromCache ? '前回の生成結果を再表示しています' : `生成しました（${outcome.attempts}回で通過）`}
         </p>
       </Shell>
-      <div data-generate-status="ok" data-generated-page={RESULT_MARKER}>
+      {/*
+        data-generate-from-cache: この結果が LLM 由来か、キャッシュの再表示かを外から判別できるようにする。
+        受入検証（B-1）は「実際に生成が走った」ことを要求するので "false" を要求できる必要がある。
+        これが無いと、将来キャッシュが永続化されたときに LLM 未呼び出しでも緑になりうる。
+      */}
+      <div
+        data-generate-status="ok"
+        data-generated-page={RESULT_MARKER}
+        data-generate-from-cache={String(outcome.fromCache)}
+      >
         <SiteThemeProvider theme={page.theme} palette={page.palette} motion={page.motion}>
           <PageRenderer sections={page.sections} design={page.design} />
         </SiteThemeProvider>

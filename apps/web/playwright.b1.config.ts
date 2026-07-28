@@ -27,7 +27,9 @@ export default defineConfig({
   webServer: {
     command: 'pnpm start',
     url: 'http://localhost:3000',
-    reuseExistingServer: true,
+    // CI では既存サーバーを再利用しない。:3000 に別プロセスが居ると、ビルドした成果物ではなく
+    // そちらを検証してしまい、evidence が「何を検証したのか」不明になる。
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   projects: [

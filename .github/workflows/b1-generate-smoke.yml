@@ -14,11 +14,19 @@ name: B-1 生成受入 (認証済みフロー・実LLM)
 on:
   workflow_dispatch:
   push:
+    # B-1 の成立に関わる経路を触ったら再検証する。ここが狭いと、レンダラや認証を壊しても
+    # B-1 は再検証されず、過去の run URL だけが evidence として残る（evidence の腐敗）。
     paths:
       - 'apps/web/app/generate/**'
+      - 'apps/web/app/(auth)/login/**'
       - 'apps/web/src/generate/**'
+      - 'apps/web/src/render/**'
+      - 'apps/web/src/sections/**'
+      - 'apps/web/src/auth/**'
       - 'apps/web/src/lib/api-guard.ts'
+      - 'apps/web/middleware.ts'
       - 'apps/web/tests/e2e/authed-generate.spec.ts'
+      - 'apps/web/playwright.b1.config.ts'
       - '.github/workflows/b1-generate-smoke.yml'
 
 jobs:
