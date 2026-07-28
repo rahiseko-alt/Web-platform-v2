@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, it, expect, beforeAll } from 'vitest';
+import { SCORE_KEY_ORDER } from '@/eval/rubric';
 
 /**
  * B-3-a / B-3-b の判定本体。
@@ -28,7 +29,6 @@ type ScreenResult = {
   };
 };
 
-const ITEM_KEYS = ['brief', 'length', 'structure', 'honesty', 'variety'] as const;
 
 let getGeneratedPageForScoring: typeof import('@/db/queries/generated-page').getGeneratedPageForScoring;
 let scorePage: typeof import('@/eval/score').scorePage;
@@ -52,19 +52,59 @@ beforeAll(async () => {
   observed = JSON.parse(raw) as ScreenResult;
 });
 
-/** URL類を除く、15字以上の描画本文の場所を1つ探す（対照実験の置換先）。 */
-function findMutableTextPath(
-  sections: { content: Record<string, unknown> }[],
-): { sectionIndex: number; key: string } | null {
-  for (const [sectionIndex, section] of sections.entries()) {
-    for (const [key, value] of Object.entries(section.content)) {
-      if (typeof value !== 'string') continue;
-      if (NON_TEXT_KEYS.test(key)) continue;
-      if (value.trim().length < 15) continue;
-      return { sectionIndex, key };
+type PathSegment = string | number;
+
+/**
+ * 値の中を再帰的に探す（score.ts の collectTexts と同じ意味論：配列・入れ子オブジェクトも辿る）。
+ * FAQ/testimonials のような「配列の中のオブジェクトの中の文字列」も対象実験の置換先になり得る。
+ * 浅い探索（section.content の直下だけ）だと、その形の本文しか持たないセクションでは
+ * 対照実験そのものが実行されず、"見つからない"という無関係な理由で落ちる。
+ */
+function findInValue(value: unknown, path: readonly PathSegment[]): PathSegment[] | null {
+  if (typeof value === 'string') {
+    const key = path[path.length - 1];
+    if (typeof key === 'string' && NON_TEXT_KEYS.test(key)) return null;
+    if (value.trim().length < 15) return null;
+    return [...path];
+  }
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const found = findInValue(item, [...path, index]);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      const found = findInValue(child, [...path, key]);
+      if (found) return found;
     }
   }
   return null;
+}
+
+/** URL類を除く、15字以上の描画本文の場所を1つ探す（対照実験の置換先）。 */
+function findMutableTextPath(
+  sections: { content: Record<string, unknown> }[],
+): { sectionIndex: number; path: PathSegment[] } | null {
+  for (const [sectionIndex, section] of sections.entries()) {
+    const found = findInValue(section.content, []);
+    if (found) return { sectionIndex, path: found };
+  }
+  return null;
+}
+
+/** path をたどって末端だけを差し替えた複製を返す（元の構造は破壊しない）。 */
+function setAtPath(value: unknown, path: readonly PathSegment[], replacement: unknown): unknown {
+  if (path.length === 0) return replacement;
+  const [head, ...rest] = path;
+  if (Array.isArray(value)) {
+    const copy = value.slice();
+    copy[head as number] = setAtPath(copy[head as number], rest, replacement);
+    return copy;
+  }
+  const record = value as Record<string, unknown>;
+  return { ...record, [head as string]: setAtPath(record[head as string], rest, replacement) };
 }
 
 describe('B-3-a: 機械採点が実際に採点した値として表示される', () => {
@@ -78,7 +118,7 @@ describe('B-3-a: 機械採点が実際に採点した値として表示される
     expect(recomputed.max).toBe(observed.screen.max);
     expect(recomputed.total).toBe(observed.screen.total);
 
-    for (const key of ITEM_KEYS) {
+    for (const key of SCORE_KEY_ORDER) {
       const screenItem = observed.screen.items[key];
       expect(screenItem, `画面に項目 ${key} が出ていない`).toBeDefined();
       const recomputedDetail = recomputed.details[key];
@@ -98,7 +138,7 @@ describe('B-3-a: 機械採点が実際に採点した値として表示される
 
     const mutatedSections = reconstructed!.page.sections.map((section, index) =>
       index === target!.sectionIndex
-        ? { ...section, content: { ...section.content, [target!.key]: '不明' } }
+        ? { ...section, content: setAtPath(section.content, target!.path, '不明') as Record<string, unknown> }
         : section,
     );
     const mutatedPage = { ...reconstructed!.page, sections: mutatedSections };
@@ -112,7 +152,7 @@ describe('B-3-a: 機械採点が実際に採点した値として表示される
 
 describe('B-3-b: 満点でない項目に、なぜ引かれたのかの説明が漏れなく読める', () => {
   it('満点未満の項目が1つ以上ある（無ければこの回では受入を確認できないので失敗とする）', () => {
-    const nonMaxKeys = ITEM_KEYS.filter((key) => observed.screen.items[key].score < observed.screen.items[key].max);
+    const nonMaxKeys = SCORE_KEY_ORDER.filter((key) => observed.screen.items[key].score < observed.screen.items[key].max);
     expect(
       nonMaxKeys.length,
       'この回の生成物は全項目が満点だったため、減点理由の表示を確認できなかった。' +
@@ -124,7 +164,7 @@ describe('B-3-b: 満点でない項目に、なぜ引かれたのかの説明が
     const reconstructed = await getGeneratedPageForScoring(observed.siteId);
     const recomputed = scorePage(reconstructed!.brief, reconstructed!.page);
 
-    for (const key of ITEM_KEYS) {
+    for (const key of SCORE_KEY_ORDER) {
       const screenItem = observed.screen.items[key];
       if (screenItem.score >= screenItem.max) continue;
 

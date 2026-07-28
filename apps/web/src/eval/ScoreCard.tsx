@@ -10,10 +10,7 @@
  */
 
 import type { PageScore } from './score';
-import type { ScoreKey } from './rubric';
-
-/** rubric.ts の WEIGHTS と同じ並び。画面表示の順序をここで固定する */
-const ORDER: readonly ScoreKey[] = ['brief', 'length', 'structure', 'honesty', 'variety'] as const;
+import { SCORE_KEY_ORDER } from './rubric';
 
 export function ScoreCard({ score }: { score: PageScore }) {
   return (
@@ -27,7 +24,7 @@ export function ScoreCard({ score }: { score: PageScore }) {
         機械採点 <span data-eval-total-text>{score.total}</span> / {score.max}
       </p>
       <ul className="mt-2 space-y-2">
-        {ORDER.map((key) => {
+        {SCORE_KEY_ORDER.map((key) => {
           const detail = score.details[key];
           return (
             <li

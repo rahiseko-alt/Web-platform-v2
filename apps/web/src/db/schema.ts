@@ -101,7 +101,7 @@ export const sites = pgTable('sites', {
    * 一致してしまう（B-3-a criteria が禁じる偽の緑）。
    */
   /** LLM が「言えない」と申告した項目（GeneratedPage.unknowns） */
-  unknowns: jsonb('unknowns'),
+  unknowns: jsonb('unknowns').$type<string[]>(),
   /** LLM が要人手確認を申告したか（GeneratedPage.needsReview） */
   needsReview: boolean('needs_review'),
 });

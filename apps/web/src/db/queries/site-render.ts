@@ -79,7 +79,7 @@ export async function getRenderablePage(siteId: string, slug: string): Promise<R
       // 委ね、ここでは読み出しの型付けだけを行う。
       design: (siteRow.design as DesignSpec | null) ?? null,
       brief: siteRow.brief,
-      unknowns: (siteRow.unknowns as string[] | null) ?? null,
+      unknowns: siteRow.unknowns ?? null,
       needsReview: siteRow.needsReview,
     },
     page: { id: pageRow.id, slug: pageRow.slug },

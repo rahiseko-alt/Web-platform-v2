@@ -32,6 +32,10 @@ on:
       - 'apps/web/tests/verify/b3-score.test.ts'
       - 'apps/web/playwright.b3.config.ts'
       - 'apps/web/vitest.b3.config.ts'
+      # e2e:b3 / verify:b3 のコマンド定義そのものが変わっても再検証する
+      # （scriptsだけ変えて中身を弱めても、過去のrun URLがevidenceとして残ってしまう）
+      - 'apps/web/package.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/b3-score-smoke.yml'
 
 jobs:

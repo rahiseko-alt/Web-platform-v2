@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
+import { SCORE_KEY_ORDER } from '@/eval/rubric';
 
 /**
  * B-3: 生成した直後に、機械採点が内訳込みで画面に出る — 実LLMを叩く受入検証。
@@ -27,8 +28,6 @@ const BRIEF =
 function uniqueEmail(): string {
   return `b3_e2e_${Date.now()}_${Math.floor(Math.random() * 100000)}@example.com`;
 }
-
-const ITEM_KEYS = ['brief', 'length', 'structure', 'honesty', 'variety'] as const;
 
 test.describe('B-3: 生成直後の機械採点表示', () => {
   test.beforeAll(() => {
@@ -82,7 +81,7 @@ test.describe('B-3: 生成直後の機械採点表示', () => {
     expect(max, '満点は50点満点のはず').toBe(50);
 
     const items: Record<string, { score: number; max: number; notes: string[] }> = {};
-    for (const key of ITEM_KEYS) {
+    for (const key of SCORE_KEY_ORDER) {
       const itemLocator = scoreCard.locator(`[data-eval-item="${key}"]`);
       await expect(itemLocator, `項目 ${key} が画面に出ていない`).toBeAttached();
 
@@ -94,7 +93,7 @@ test.describe('B-3: 生成直後の機械採点表示', () => {
     }
 
     // 合計が内訳の和と一致すること（表示・データの取り違えが無いことの一次確認）
-    const sumOfItems = Math.round(ITEM_KEYS.reduce((sum, key) => sum + items[key].score, 0) * 10) / 10;
+    const sumOfItems = Math.round(SCORE_KEY_ORDER.reduce((sum, key) => sum + items[key].score, 0) * 10) / 10;
     expect(sumOfItems, '画面の合計が内訳の和と一致しない').toBe(total);
 
     await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });

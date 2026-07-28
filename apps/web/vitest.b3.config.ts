@@ -17,5 +17,10 @@ export default defineConfig({
   },
   test: {
     include: ['tests/verify/**/*.test.ts'],
+    // vitest.config.ts と同じ理由（PGlite の実クエリを複数回行う）。今はこのincludeに
+    // ファイルが1つしか無く並列競合は起きないが、将来 tests/verify/ が増えたときの
+    // 既定10秒超過を先回りで防いでおく。
+    hookTimeout: 30_000,
+    testTimeout: 30_000,
   },
 });

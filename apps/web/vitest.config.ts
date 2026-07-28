@@ -13,6 +13,8 @@ export default defineConfig({
     exclude: ['tests/e2e/**', 'tests/verify/**', 'node_modules/**'],
     // PGlite を beforeAll で起動するテストファイルが複数（user-sites / generated-page-scoring）
     // 並列実行されると初期化がCPU負荷で既定の10秒を超えることがある（実測でflaky）。
+    // 個々の it() も実SQLの挿入・検索を複数回行うため、同じ競合の影響を受けうる。
     hookTimeout: 30_000,
+    testTimeout: 30_000,
   },
 });
