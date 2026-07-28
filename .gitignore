@@ -34,6 +34,7 @@ yarn-error.log*
 # apps/web（web-platform由来）
 apps/web/.pglite/
 apps/web/tests/e2e/.seed-result.json
+apps/web/tests/e2e/.b2-result.json
 apps/web/test-results/
 apps/web/eval/runs/
 *.key

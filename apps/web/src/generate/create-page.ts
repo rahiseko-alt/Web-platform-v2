@@ -43,6 +43,12 @@ export interface CreatePageInput {
    * キャッシュはプロセス内メモリのみ（cache.ts）。
    */
   useCache?: boolean;
+  /**
+   * キャッシュを分ける単位。**認証済みの入口では必ずそのユーザーのIDを渡すこと**。
+   * 省略すると全利用者で共有の空間に入り、別の人が同じ依頼文を出したときに
+   * 他人の生成結果が返る（＝その人には何も保存されない。cache.ts の cacheKeyFor 参照）。
+   */
+  cacheScope?: string;
 }
 
 export interface CreatePageDeps {
@@ -55,9 +61,9 @@ export async function createPageFromBrief(
   input: CreatePageInput,
   deps: CreatePageDeps = {},
 ): Promise<CreatePageOutcome> {
-  const { brief, maxRetries, useCache = false } = input;
+  const { brief, maxRetries, useCache = false, cacheScope } = input;
 
-  const cacheKey = cacheKeyFor(brief);
+  const cacheKey = cacheKeyFor(brief, cacheScope);
   if (useCache) {
     const cached = getCachedPage(cacheKey);
     // キャッシュ命中は LLM を呼んでいないので attempts:0・expanded:false で表す

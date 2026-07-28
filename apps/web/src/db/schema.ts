@@ -78,6 +78,22 @@ export const sites = pgTable('sites', {
   createdBy: uuid('created_by').notNull().references(() => users.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  /**
+   * 以下4列は「生成されたサイト」（ロードマップ B-2）用。テンプレ由来のサイトでは null のまま。
+   *
+   * なぜ必要か: テンプレ由来のサイトは design/palette/motion を templateId から
+   * `getDesignSpec()` で引けるが、生成されたサイトは templateId を持たない（LLM が
+   * その場で決めた一点物）。ここへ書かないと、保存できるのは文言だけになり
+   * 「保存したLPを開くと別物になる」＝ B-2 の『そのLPが残る』が成り立たない。
+   */
+  /** 配色軸（GeneratedPage.palette）。theme とは独立に色だけを決める */
+  palette: text('palette'),
+  /** 動き軸（GeneratedPage.motion） */
+  motion: text('motion'),
+  /** 構造化デザイントークン（DesignSpec）。テンプレの design と同じ形 */
+  design: jsonb('design'),
+  /** このサイトを生んだ依頼文。一覧で「何を頼んで作ったサイトか」を示すために持つ */
+  brief: text('brief'),
 });
 
 export const pages = pgTable('pages', {

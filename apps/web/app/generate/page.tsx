@@ -12,16 +12,20 @@
  *   middleware.ts の Cookie 存在チェックは optimistic check のため、ここで requireSession により
  *   実体のセッション有効性を再検証する（api-guard.ts と同じ思想）。未ログインは /login へ誘導する。
  *
- * 永続化（生成結果をそのユーザーの所有物として保存する）は B-2 の担当でここには含めない。
- * この葉が満たすのは「生成が実行され、結果が返る」ことだけ。
+ * 永続化（生成結果をそのユーザーの所有物として保存する）は B-2-a の担当。手順そのものは
+ * src/db/queries/save-generated-page.ts が持ち、ここは「いつ呼ぶか」だけを決める:
+ *   **実際に生成が走ったときだけ保存する（fromCache:false のときだけ）**。
+ *   キャッシュ再表示でも保存すると、画面をリロードするたびに同じサイトが増殖する。
  */
 
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { PageRenderer } from '@/render/PageRenderer';
 import { SiteThemeProvider } from '@/render/SiteThemeProvider';
 import { requireSession } from '@/lib/api-guard';
 import { createPageFromBrief } from '@/generate/create-page';
+import { saveGeneratedPage } from '@/db/queries/save-generated-page';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,7 +103,9 @@ export default async function GeneratePage({ searchParams }: { searchParams: Pro
     );
   }
 
-  const outcome = await createPageFromBrief({ brief, useCache: true });
+  // cacheScope にユーザーIDを渡す。渡さないと全利用者共有のキャッシュになり、
+  // 別の人が同じ依頼文を出したときに他人の結果が返って保存もされない（cache.ts 参照）。
+  const outcome = await createPageFromBrief({ brief, useCache: true, cacheScope: session.userId });
 
   if (outcome.status === 'no-api-key') {
     return <Notice brief={brief}>生成の準備ができていません（サーバー設定を確認してください）。</Notice>;
@@ -120,11 +126,29 @@ export default async function GeneratePage({ searchParams }: { searchParams: Pro
 
   const { page } = outcome;
 
+  // 保存（B-2-a）。実際に生成が走ったときだけ書く＝リロード（キャッシュ再表示）で増殖させない。
+  // 保存の失敗は握りつぶさない：保存できていないのに「できました」の画面を見せると、
+  // 一覧に出ない理由が利用者にも検証者にも分からなくなる。
+  let savedSiteId: string | null = null;
+  if (!outcome.fromCache) {
+    try {
+      const saved = await saveGeneratedPage({ userId: session.userId, brief, page });
+      savedSiteId = saved.siteId;
+    } catch (error) {
+      console.error('generate: failed to persist generated page:', error);
+      return <Notice brief={brief}>生成はできましたが、保存に失敗しました。もう一度お試しください。</Notice>;
+    }
+  }
+
   return (
     <>
       <Shell brief={brief}>
         <p className="mx-auto mt-2 max-w-3xl text-xs text-text-muted">
           {outcome.fromCache ? '前回の生成結果を再表示しています' : `生成しました（${outcome.attempts}回で通過）`}
+          {' / '}
+          <Link href="/editor" className="text-accent underline">
+            自分のサイト一覧
+          </Link>
         </p>
       </Shell>
       {/*
@@ -132,10 +156,16 @@ export default async function GeneratePage({ searchParams }: { searchParams: Pro
         受入検証（B-1）は「実際に生成が走った」ことを要求するので "false" を要求できる必要がある。
         これが無いと、将来キャッシュが永続化されたときに LLM 未呼び出しでも緑になりうる。
       */}
+      {/*
+        data-saved-site-id: 保存された実体（B-2-a）を外から掴むための安定マーカー。
+        画面が出ていることと保存されたことは別なので、独立検証はこのIDでDBを直接引く。
+        キャッシュ再表示のときは保存していないので付かない（undefined = 属性ごと出ない）。
+      */}
       <div
         data-generate-status="ok"
         data-generated-page={RESULT_MARKER}
         data-generate-from-cache={String(outcome.fromCache)}
+        data-saved-site-id={savedSiteId ?? undefined}
       >
         <SiteThemeProvider theme={page.theme} palette={page.palette} motion={page.motion}>
           <PageRenderer sections={page.sections} design={page.design} />

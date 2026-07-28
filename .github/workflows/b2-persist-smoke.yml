@@ -1,0 +1,100 @@
+name: B-2 保存受入 (認証済みフロー・実LLM)
+
+# ロードマップ B-2（生成されたLPが、そのユーザーの所有物として保存される）の受入検証。
+# B-2-a / B-2-b-1 / B-2-b-2 / B-2-c の4葉をこの1本で判定する。
+#
+# **実際に OpenAI を呼ぶ（課金が発生する。1回の実行で生成3回）** ため、ci.yml とは分けて
+# 手動 / 明示実行にしている。ci-green には束ねない（毎PRで課金しない・キー未設定でPRを止めない）。
+#
+# キーの扱い（docs/failures.md 2026-07-28 の教訓）:
+#   OPENAI_API_KEY は**リポジトリの Secrets にのみ**置く。チャットにも作業環境にも平文で置かない。
+#
+# このワークフローの run URL が、B-2 各葉の evidence（偽造不能な外部事実）になる。
+
+on:
+  workflow_dispatch:
+  push:
+    # B-2 の成立に関わる経路を触ったら再検証する。ここが狭いと、保存や一覧を壊しても
+    # B-2 は再検証されず、過去の run URL だけが evidence として残る（evidence の腐敗）。
+    paths:
+      - 'apps/web/app/editor/**'
+      - 'apps/web/app/generate/**'
+      - 'apps/web/app/(auth)/login/**'
+      - 'apps/web/src/db/**'
+      - 'apps/web/drizzle/**'
+      - 'apps/web/src/generate/**'
+      - 'apps/web/src/render/**'
+      - 'apps/web/src/sections/**'
+      - 'apps/web/src/auth/**'
+      - 'apps/web/src/lib/api-guard.ts'
+      - 'apps/web/middleware.ts'
+      - 'apps/web/tests/e2e/authed-persist.spec.ts'
+      - 'apps/web/playwright.b2.config.ts'
+      - 'apps/web/scripts/verify-b2-persistence.mjs'
+      - '.github/workflows/b2-persist-smoke.yml'
+
+jobs:
+  authed-persist:
+    name: 保存と一覧 (login → 生成 → 保存先を別プロセスで確認)
+    runs-on: ubuntu-latest
+    steps:
+      # キー未設定を「スキップして緑」にしない。偽の緑を作らないため明示的に落とす
+      # （b1-generate-smoke.yml / prod-smoke.yml と同じ SKIP-AS-FAIL 方式）。
+      - name: OPENAI_API_KEY の存在を確認 (未設定なら落とす)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY}" ]; then
+            echo "SKIP-AS-FAIL: OPENAI_API_KEY が未設定です。"
+            echo "リポジトリの Settings → Secrets and variables → Actions で OPENAI_API_KEY を登録してください。"
+            echo "（キーはチャットや作業環境に平文で置かないこと: docs/failures.md 2026-07-28）"
+            exit 1
+          fi
+          echo "OPENAI_API_KEY: 設定済み（値は出力しない）"
+
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser (chromium)
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # 未適用だとサインアップが 500 になる（A-1 の独立検証で実際に踏んだ失敗: docs/failures.md 参照）。
+      - name: DB スキーマ適用 (PGlite)
+        run: pnpm --filter web db:push
+
+      - name: Build
+        run: pnpm --filter web build
+
+      - name: B-2 受入 E2E (実LLM・生成3回)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'ci-only-not-a-production-secret-000000' }}
+        run: pnpm --filter web e2e:b2
+
+      # ここが B-2-a の判定本体。**上の step が終わって webServer が停止したあと**に走るので、
+      # PGlite（単一プロセス専有）を別プロセスから開ける＝サーバーが落ちても残っていることの証明になる。
+      # 稼働中に読もうとすると開けないので、この順序を入れ替えないこと。
+      - name: B-2-a 保存の確認 (サーバー停止後・別プロセスから保存先を直読み)
+        run: pnpm --filter web verify:b2
+
+      - name: Playwright レポートを保存 (失敗時の追跡用)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-b2
+          path: apps/web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

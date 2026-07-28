@@ -28,12 +28,19 @@ export default async function Page({
     .map((s) => s.content.accentColor)
     .find((v): v is string => typeof v === 'string');
 
-  // 構造化トークン（DesignSpec）をtemplateId起点で引く。未登録テンプレはundefined
-  // （PageRenderer/各部品側が既定変種へフォールバックする）。
-  const design = getDesignSpec(data.site.templateId);
+  // 構造化トークン（DesignSpec）の出どころは2系統ある:
+  // - 生成されたサイト（B-2-a）: templateId を持たない一点物なので sites.design に保存済み。それを使う。
+  // - テンプレ由来のサイト     : templateId 起点で registry から引く（未登録は undefined ＝ 既定変種）。
+  // 生成サイトで registry を引くと必ず undefined になり、保存したLPが既定変種の別物として出る。
+  const design = data.site.design ?? getDesignSpec(data.site.templateId);
 
   return (
-    <SiteThemeProvider theme={data.site.theme} accentColor={accentColor}>
+    <SiteThemeProvider
+      theme={data.site.theme}
+      accentColor={accentColor}
+      palette={data.site.palette ?? undefined}
+      motion={data.site.motion ?? undefined}
+    >
       <PageRenderer sections={data.sections} design={design} />
     </SiteThemeProvider>
   );
