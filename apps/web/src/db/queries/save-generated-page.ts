@@ -98,6 +98,10 @@ export async function saveGeneratedPage(
       motion: page.motion,
       design: page.design,
       brief,
+      // 機械採点の独立再計算（B-3-a）に要る。無いと scoreHonesty が常に unknowns=[] を
+      // 見ることになり、表示側と再計算側が同じ誤値で一致してしまう。
+      unknowns: page.unknowns,
+      needsReview: page.needsReview,
       createdBy: userId,
     })
     .returning({ id: sites.id });

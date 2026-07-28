@@ -94,6 +94,16 @@ export const sites = pgTable('sites', {
   design: jsonb('design'),
   /** このサイトを生んだ依頼文。一覧で「何を頼んで作ったサイトか」を示すために持つ */
   brief: text('brief'),
+  /**
+   * 以下2列は機械採点の独立再計算（ロードマップ B-3-a）用。
+   * scoreHonesty（src/eval/score.ts）が unknowns を読むため、これが無いと復元した
+   * GeneratedPage は常に unknowns=[] になり、表示側と再計算側が「仲良く同じ誤値」で
+   * 一致してしまう（B-3-a criteria が禁じる偽の緑）。
+   */
+  /** LLM が「言えない」と申告した項目（GeneratedPage.unknowns） */
+  unknowns: jsonb('unknowns'),
+  /** LLM が要人手確認を申告したか（GeneratedPage.needsReview） */
+  needsReview: boolean('needs_review'),
 });
 
 export const pages = pgTable('pages', {

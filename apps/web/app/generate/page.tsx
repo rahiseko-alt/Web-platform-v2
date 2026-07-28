@@ -26,6 +26,8 @@ import { SiteThemeProvider } from '@/render/SiteThemeProvider';
 import { requireSession } from '@/lib/api-guard';
 import { createPageFromBrief } from '@/generate/create-page';
 import { saveGeneratedPage } from '@/db/queries/save-generated-page';
+import { scorePage } from '@/eval/score';
+import { ScoreCard } from '@/eval/ScoreCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,6 +128,12 @@ export default async function GeneratePage({ searchParams }: { searchParams: Pro
 
   const { page } = outcome;
 
+  // 機械採点（B-3）。稼働ループには置かず、保存済みの結果に対して後から回す既存方針
+  // （docs/design-notes.md §6-1）どおり、ここでも生成が終わった outcome.page に対して行う。
+  // fromCache でも計算する：scorePage は brief+page の純関数で、キャッシュ再表示でも
+  // 同じ入力からは同じ点が出るため、キャッシュかどうかで表示するかを分けない。
+  const score = scorePage(brief, page);
+
   // 保存（B-2-a）。実際に生成が走ったときだけ書く＝リロード（キャッシュ再表示）で増殖させない。
   // 保存の失敗は握りつぶさない：保存できていないのに「できました」の画面を見せると、
   // 一覧に出ない理由が利用者にも検証者にも分からなくなる。
@@ -171,6 +179,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Pro
           <PageRenderer sections={page.sections} design={page.design} />
         </SiteThemeProvider>
       </div>
+      <ScoreCard score={score} />
     </>
   );
 }

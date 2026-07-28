@@ -23,6 +23,14 @@ export type RenderablePage = {
     palette: string | null;
     motion: string | null;
     design: DesignSpec | null;
+    /** このサイトを生んだ依頼文。生成されたサイト（B-2-a）のみ。テンプレ由来は null */
+    brief: string | null;
+    /**
+     * 以下2つは機械採点の独立再計算（B-3-a）用。生成されたサイトのみ。
+     * LLM 出力をそのまま保存しているだけで、ここでの真偽判定は行わない。
+     */
+    unknowns: string[] | null;
+    needsReview: boolean | null;
   };
   page: { id: string; slug: string };
   sections: RenderableSection[];
@@ -70,6 +78,9 @@ export async function getRenderablePage(siteId: string, slug: string): Promise<R
       // jsonb は unknown で返る。形の検証は保存側（save-generated-page.ts が DesignSpec を書く）に
       // 委ね、ここでは読み出しの型付けだけを行う。
       design: (siteRow.design as DesignSpec | null) ?? null,
+      brief: siteRow.brief,
+      unknowns: (siteRow.unknowns as string[] | null) ?? null,
+      needsReview: siteRow.needsReview,
     },
     page: { id: pageRow.id, slug: pageRow.slug },
     sections: sectionRows.map((s) => ({

@@ -36,8 +36,12 @@ export interface PageScore {
   details: Record<ScoreKey, ScoreDetail>;
 }
 
-/** 描画されない値（URL 類）は本文ではないので採点対象から外す */
-const NON_TEXT_KEYS = /(href|imageurl|beforeimageurl|afterimageurl)$/i;
+/**
+ * 描画されない値（URL 類）は本文ではないので採点対象から外す。
+ * export しているのは、B-3-a の受入検証（対照実験でどのフィールドを書き換えてよいかの判定）が
+ * 同じ基準を再利用するため。ここと検証側で別々の正規表現を持つと基準がズレる。
+ */
+export const NON_TEXT_KEYS = /(href|imageurl|beforeimageurl|afterimageurl)$/i;
 
 /** 依頼文に必ず出るが「反映されたか」の指標にならない語 */
 const STOP_TERMS = new Set([
