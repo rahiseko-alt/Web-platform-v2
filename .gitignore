@@ -35,6 +35,7 @@ yarn-error.log*
 apps/web/.pglite/
 apps/web/tests/e2e/.seed-result.json
 apps/web/tests/e2e/.b2-result.json
+apps/web/tests/e2e/.b3-result.json
 apps/web/test-results/
 apps/web/eval/runs/
 *.key

@@ -33,6 +33,14 @@ export const WEIGHTS = {
 
 export type ScoreKey = keyof typeof WEIGHTS;
 
+/**
+ * A〜E の表示・巡回順（正本）。ScoreCard.tsx / 受入E2E / 検証スクリプトがそれぞれ
+ * 独自に ['brief','length','structure','honesty','variety'] を持つと、ここへ項目を
+ * 増減したときに一部だけ更新漏れが起きる（表示順ズレ・検証の取りこぼし）。
+ * オブジェクトの文字列キーは定義順を保持する（ECMAScript仕様）ため Object.keys でよい。
+ */
+export const SCORE_KEY_ORDER = Object.keys(WEIGHTS) as ScoreKey[];
+
 /** 単票の満点。A〜E の合計 */
 export const PER_PAGE_TOTAL = WEIGHTS.brief + WEIGHTS.length + WEIGHTS.structure + WEIGHTS.honesty + WEIGHTS.variety;
 
