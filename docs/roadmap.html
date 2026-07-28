@@ -117,11 +117,11 @@
 {
   "meta": {
     "title": "web-platform-v2：希望を伝えるとLPが完成するSaaS",
-    "active": "A-4",
-    "next": "A-4（ログイン済みでも他人の所有物にはアクセスできないことを実際に確認する）から着手する。A-3はdone化済み。A-4はA-2に依存し、A-2は既にdone。",
+    "active": "B-1",
+    "next": "B-1（認証済みユーザーが依頼文を送るとLPが生成される）から着手する。A（A-1〜A-4）とF（F-1〜F-4）が両方done化したことで、B.deps=[\"A-2\",\"F\"]が満たされBブロックが着手可能になった。",
     "handoff": {
-      "done": "A-3（未ログインだと保護ページに到達できない）を独立検証しPASS・done化した。判定は作業者ではなく独立サブエージェント（.claude/agents/independent-verifier.md）が実施し、画面パス（/editor/<siteId>）はcurlのHTTPヘッダで307→/login?redirectを確認、さらに実ブラウザ（Chromium）で最終URLと画面見出し『ログイン』を確認、APIパス（/api/content/<path>）は401 {\"error\":\"Unauthorized\"}を確認した。対照実験としてmatcher対象外の/・/login・/api/auth/get-sessionは通常通り200を返すことも確認し、全パス一律拒否の偽の緑でないことを示した（docs/verification/A-3-unauth-reject.md に実コマンドと実出力を保存）。参考情報として、改ざんCookieは一次遮断（Cookie存在のみを見る設計）を通過することも観測したが、これはmiddleware.tsのコメントに明記された多層防御設計（二次防御は各route/pageのauth.api.getSession()）どおりであり、A-3のcriteria（未ログイン＝Cookie無し）の対象外として記録に留めた。",
-      "trouble": "無し。前回（A-2）の教訓どおり、検証前に pnpm db:push でスキーマ適用してから開発サーバーを起動したため環境起因のFAILは発生しなかった。"
+      "done": "A-4（ログイン済みでも他人の所有物にはアクセスできない＝IDOR拒否）を独立検証しPASS・done化した。これでA（A-1〜A-4）が全てdone。独立サブエージェント（.claude/agents/independent-verifier.md）が、サインアップ経由で作成した2アカウント（ユーザーA/B）と独立プロセスから直接DB投入したユーザーA所有のsite/sectionを使い、画面パス（/editor/<siteId>）は非所有者Bに404（所有者Aは200）、APIパス（PATCH /api/content/<sectionId>、POST .../image）は非所有者Bに403（所有者Aは200・副作用なしをDB直読みで確認）をcurl・実ブラウザ（Chromium）の両方で確認した（docs/verification/A-4-idor-reject.md）。検証過程で偽陽性の芽を2件検出・原因特定して排除している：(a) 独立プロセスからのPGlite直接書き込みは稼働中devサーバーへ即時反映されず所有者本人でも一時404になった→サーバー再起動で解消、(b) better-auth組込みのsign-inレート制限による一時401→レスポンス本文でアプリのバグでないことを確認し再実行。既にF（F-1〜F-4）もevidence充足済みでdone化されているため、B.deps=[\"A-2\",\"F\"]が両方満たされ、次はB-1から着手できる。",
+      "trouble": "無し。"
     },
     "updated": "2026-07-28"
   },
@@ -155,9 +155,9 @@
             { "id":"A-4", "kind":"state",
               "theme":"ログイン済みでも、他人の所有物にはアクセスできない",
               "meaning":"他人のサイトを覗いたり触ったりできない",
-              "detail":"1事実：IDOR拒否。app/editor/[siteId]のrequireSiteOwnershipは実装済みだが、他人のsiteIdでの実際の拒否確認が無い。A-3（未ログイン拒否）とは別レイヤー（requireSiteOwnershipはセッション有効性に加え所有権を再検証する設計）。",
+              "detail":"1事実：IDOR拒否。独立検証者がPASS判定（docs/verification/A-4-idor-reject.md）。画面パス（/editor/<siteId>）は非所有者に404（notFound()に丸められる設計）、所有者は200で編集画面表示。APIパス（PATCH /api/content/<sectionId>、POST /api/content/<sectionId>/image）は非所有者に403 {\"error\":\"Forbidden\"}、DB直読みで副作用（更新の反映）が無いことも確認。curl・実ブラウザ（Chromium）の両方で確認した。A-3（未ログイン拒否）とは別レイヤー（requireSiteOwnership/requireSectionOwnershipはセッション有効性に加え所有権を再検証する設計）。",
               "deps": ["A-2"],
-              "criteria": [ { "text":"別アカウントが所有するsiteIdを指定して編集画面/APIへアクセスすると拒否される", "verify":"実際に別アカウントのsiteIdでアクセスを試み、拒否（403/404等）されることを確認する", "evidence":"" } ] }
+              "criteria": [ { "text":"別アカウントが所有するsiteIdを指定して編集画面/APIへアクセスすると拒否される", "verify":"実際に別アカウントのsiteIdでアクセスを試み、拒否（403/404等）されることを確認する", "evidence":"63de46c" } ] }
           ] },
         { "id":"B", "kind":"state",
           "theme":"依頼文からLPが生成され、スコアがその場で本人に見える",
