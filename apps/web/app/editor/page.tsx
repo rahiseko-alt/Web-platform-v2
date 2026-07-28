@@ -25,6 +25,13 @@ export const dynamic = 'force-dynamic';
 /** E2E / 独立検証が一覧を掴むための安定マーカー（画面文言に依存した脆い検証にしない）。 */
 const LIST_MARKER = 'site-list';
 
+/**
+ * 「この画面が実際に描画された（＝404やエラー画面ではない）」ことを掴むためのマーカー。
+ * 一覧が0件のとき <ul> は中身が空＝高さ0で "hidden" 扱いになるため、一覧要素の可視性では
+ * 着地の成否を判定できない。可視要素を含むこのマーカーで判定する。
+ */
+const PAGE_MARKER = 'site-list-page';
+
 export default async function SiteListPage() {
   const requestHeaders = await headers();
   // next/headers の ReadonlyHeaders は fetch API Headers から mutator を除いた型のため、
@@ -37,7 +44,7 @@ export default async function SiteListPage() {
   const userSites = await listSitesForUser(session.userId);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
+    <main data-page={PAGE_MARKER} className="mx-auto max-w-3xl px-6 py-10">
       <div className="flex items-baseline justify-between gap-4">
         <h1 className="font-heading text-xl font-bold text-text">自分のサイト</h1>
         <Link href="/generate" className="text-sm text-accent underline">

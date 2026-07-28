@@ -97,10 +97,17 @@ async function generate(page: Page, brief: string): Promise<GenerateResult> {
   return { siteId: siteId as string, headline, sectionTypes };
 }
 
-/** 一覧に並んでいるサイトIDを読む。 */
+/**
+ * 一覧に並んでいるサイトIDを読む。
+ *
+ * 一覧の <ul> は0件のとき中身が空＝高さ0で "hidden" 扱いになるので、可視性で待たない。
+ * 「画面がちゃんと描画された（404やエラー画面ではない）」は可視要素を含む data-page で確かめ、
+ * 一覧要素自体は DOM に在ること（toBeAttached）を確かめる。
+ */
 async function listedSiteIds(page: Page): Promise<string[]> {
   await page.goto('/editor');
-  await expect(page.locator('[data-site-list="site-list"]')).toBeVisible();
+  await expect(page.locator('[data-page="site-list-page"]')).toBeVisible();
+  await expect(page.locator('[data-site-list="site-list"]')).toBeAttached();
   return page.locator('[data-site-id]').evaluateAll((nodes) =>
     nodes.map((node) => node.getAttribute('data-site-id') ?? ''),
   );
@@ -137,11 +144,17 @@ test.describe('B-2: 生成されたLPが自分の所有物として保存され�
     await loginViaForm(pageA, emailA);
 
     // B-2-b-1: ログイン直後の着地がエラー画面ではなく自分の作業画面である。
+    // 一覧は0件＝<ul>が空で高さ0のため可視性では判定できない。実際に描画された画面であることは
+    // 可視要素を含む data-page で、一覧の存在は toBeAttached で確かめる。
     expect(new URL(pageA.url()).pathname, 'ログイン後の着地点が想定と違う').toBe('/editor');
     await expect(
-      pageA.locator('[data-site-list="site-list"]'),
+      pageA.locator('[data-page="site-list-page"]'),
       'ログイン直後の画面に自分のサイトの画面が出ていない（エラー画面の可能性）',
     ).toBeVisible();
+    await expect(
+      pageA.locator('[data-site-list="site-list"]'),
+      '一覧そのものが描画されていない',
+    ).toBeAttached();
     // 1件も作っていないので、この時点の一覧は空。あとで「増えた」と言えるようにする。
     await expect(pageA.locator('[data-site-list="site-list"]')).toHaveAttribute('data-site-count', '0');
 
