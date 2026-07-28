@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { contentEntries, pages, sections, sites } from '@/db/schema';
+import type { DesignSpec } from '@/templates/types';
 
 export type RenderableSection = {
   id: string;
@@ -10,7 +11,19 @@ export type RenderableSection = {
 };
 
 export type RenderablePage = {
-  site: { id: string; theme: string; templateId: string };
+  site: {
+    id: string;
+    theme: string;
+    templateId: string;
+    /**
+     * 以下3つは「生成されたサイト」（B-2-a）で保存された一点物のデザイン。テンプレ由来のサイトでは null。
+     * 呼び出し側は design が null のときだけ templateId から getDesignSpec() で引く
+     * （生成サイトは templateId を持たないため、これが無いと保存したLPが別物になって出る）。
+     */
+    palette: string | null;
+    motion: string | null;
+    design: DesignSpec | null;
+  };
   page: { id: string; slug: string };
   sections: RenderableSection[];
 };
@@ -48,7 +61,16 @@ export async function getRenderablePage(siteId: string, slug: string): Promise<R
   }
 
   return {
-    site: { id: siteRow.id, theme: siteRow.theme, templateId: siteRow.templateId },
+    site: {
+      id: siteRow.id,
+      theme: siteRow.theme,
+      templateId: siteRow.templateId,
+      palette: siteRow.palette,
+      motion: siteRow.motion,
+      // jsonb は unknown で返る。形の検証は保存側（save-generated-page.ts が DesignSpec を書く）に
+      // 委ね、ここでは読み出しの型付けだけを行う。
+      design: (siteRow.design as DesignSpec | null) ?? null,
+    },
     page: { id: pageRow.id, slug: pageRow.slug },
     sections: sectionRows.map((s) => ({
       id: s.id,

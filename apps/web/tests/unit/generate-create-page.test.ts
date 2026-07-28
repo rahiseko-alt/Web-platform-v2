@@ -99,6 +99,42 @@ describe('createPageFromBrief（生成の単一経路）', () => {
     expect(second.page).toEqual(first.page);
   });
 
+  it('cacheScope が違えば、同じ依頼文でも他人の結果を返さない（B-2-a の保存漏れ防止）', async () => {
+    // store はプロセス内で全利用者に共有される。scope を畳み込まないと、2人目は fromCache:true に
+    // なり、画面にはLPが出るのに**その人の持ち物としては1件も保存されない**（入口は fromCache:false の
+    // ときだけ保存するため）。ここはその再発を止める回帰テスト。
+    const brief = `${BRIEF}-shared`;
+    const alice = fakeClient(validLlmOutputJson());
+    const bob = fakeClient(validLlmOutputJson());
+
+    const first = await createPageFromBrief(
+      { brief, useCache: true, cacheScope: 'user-alice' },
+      { createClient: () => alice },
+    );
+    expect(first.status).toBe('ok');
+    if (first.status !== 'ok') return;
+    expect(first.fromCache).toBe(false);
+
+    // 2人目は別の scope。キャッシュ命中してはいけない＝実際に生成が走る
+    const second = await createPageFromBrief(
+      { brief, useCache: true, cacheScope: 'user-bob' },
+      { createClient: () => bob },
+    );
+    expect(second.status).toBe('ok');
+    if (second.status !== 'ok') return;
+    expect(second.fromCache).toBe(false);
+    expect(bob.calls).toBeGreaterThan(0);
+
+    // 同一 scope での2回目は従来どおり命中する（キャッシュ自体を殺していないことの対照）
+    const again = await createPageFromBrief(
+      { brief, useCache: true, cacheScope: 'user-alice' },
+      { createClient: forbiddenClient },
+    );
+    expect(again.status).toBe('ok');
+    if (again.status !== 'ok') return;
+    expect(again.fromCache).toBe(true);
+  });
+
   it('useCache:false ならキャッシュへ書かない（API 経路の既定挙動）', async () => {
     const brief = `${BRIEF}-nocache`;
     const client = fakeClient(validLlmOutputJson());
