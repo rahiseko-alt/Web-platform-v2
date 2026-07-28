@@ -111,12 +111,15 @@ describe('createPageFromBrief（生成の単一経路）', () => {
 
 /**
  * 構造ガード：入口（app/）が生成手順を再実装していないこと。
- * app/try と app/api/generate は outcome を画面/HTTP へ写すだけで、稼働ループや
- * LLM クライアント生成、キャッシュ操作を直接触ってはいけない。
+ * app/try・app/api/generate・app/generate（認証済みフロー）は outcome を画面/HTTP へ写すだけで、
+ * 稼働ループや LLM クライアント生成、キャッシュ操作を直接触ってはいけない。
+ *
+ * **入口を増やしたらこの ENTRY_POINTS に必ず足すこと**。足し忘れると、その入口だけ
+ * 生成手順を再実装しても緑のままになり、F-4 で潰した複製が再発する。
  */
 describe('生成手順の単一経路が保たれている（複製の再発防止）', () => {
   const APP_DIR = path.join(__dirname, '..', '..', 'app');
-  const ENTRY_POINTS = ['try/page.tsx', 'api/generate/route.ts'];
+  const ENTRY_POINTS = ['try/page.tsx', 'api/generate/route.ts', 'generate/page.tsx'];
 
   /** 入口が直接触ってはいけない＝単一経路の内部にあるべきもの */
   const FORBIDDEN = [

@@ -17,9 +17,26 @@ export type OwnershipResult =
   | { ok: true; userId: string; organizationId: string; siteId: string }
   | { ok: false; status: 401 | 403 | 404; message: string };
 
+/** 所有権を伴わない「ログインしているか」だけの判定結果（生成フロー等、リソース未確定の入口用）。 */
+export type SessionResult = { ok: true; userId: string } | { ok: false; status: 401; message: string };
+
 async function getSessionUserId(requestHeaders: Headers): Promise<string | null> {
   const session = await auth.api.getSession({ headers: requestHeaders });
-  return session?.user.id ?? null;
+  // user まで optional chaining する。ここは認可境界なので、想定外の形の応答が来たときに
+  // 例外（＝500）で落ちるのではなく null（＝クリーンに 401 拒否）へ倒す。
+  return session?.user?.id ?? null;
+}
+
+/**
+ * セッション有効性のみの検証（所有権チェックは伴わない）。
+ * 生成フロー（ロードマップ B-1）のように、アクセス対象のリソースがまだ存在しない入口で使う。
+ * middleware.ts の Cookie 存在チェックは optimistic check のため、ここで実体のセッションを再検証する
+ * （requireSiteOwnership / requireSectionOwnership と同じ多層防御思想）。
+ */
+export async function requireSession(requestHeaders: Headers): Promise<SessionResult> {
+  const userId = await getSessionUserId(requestHeaders);
+  if (!userId) return { ok: false, status: 401, message: 'Unauthorized' };
+  return { ok: true, userId };
 }
 
 /** siteId 起点の所有権検証（エディタページ用）。 */

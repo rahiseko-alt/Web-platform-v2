@@ -13,6 +13,9 @@ loadEnvConfig(process.cwd());
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  // B-1 の受入検証は**実LLMを叩いて課金が発生する**ため、通常の `pnpm e2e` からは除外する。
+  // 実行は playwright.b1.config.ts ＋ 専用ワークフローからのみ（`pnpm e2e:b1`）。
+  testIgnore: /authed-generate\.spec\.ts$/,
   fullyParallel: false,
   workers: 1,
   globalSetup: './tests/e2e/global-setup.ts',

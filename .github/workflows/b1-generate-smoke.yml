@@ -1,0 +1,83 @@
+name: B-1 生成受入 (認証済みフロー・実LLM)
+
+# ロードマップ B-1「認証済みユーザーが依頼文を送るとLPが生成される」の受入検証。
+#
+# **実際に OpenAI を呼ぶ（課金が発生する）** ため、ci.yml とは分けて手動 / 明示実行にしている。
+# ci-green には束ねない（毎PRで課金しない・キー未設定でPRを止めない）。
+#
+# キーの扱い（docs/failures.md 2026-07-28 の教訓）:
+#   OPENAI_API_KEY は**リポジトリの Secrets にのみ**置く。チャットにも作業環境にも平文で置かない。
+#   Settings → Secrets and variables → Actions → New repository secret で `OPENAI_API_KEY` を登録する。
+#
+# このワークフローの run URL が、B-1 の evidence（偽造不能な外部事実）になる。
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/web/app/generate/**'
+      - 'apps/web/src/generate/**'
+      - 'apps/web/src/lib/api-guard.ts'
+      - 'apps/web/tests/e2e/authed-generate.spec.ts'
+      - '.github/workflows/b1-generate-smoke.yml'
+
+jobs:
+  authed-generate:
+    name: 認証済み生成 (login → brief → 生成結果)
+    runs-on: ubuntu-latest
+    steps:
+      # キー未設定を「スキップして緑」にしない。偽の緑を作らないため明示的に落とす
+      # （prod-smoke.yml の SKIP-AS-FAIL と同じ方式）。
+      - name: OPENAI_API_KEY の存在を確認 (未設定なら落とす)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY}" ]; then
+            echo "SKIP-AS-FAIL: OPENAI_API_KEY が未設定です。"
+            echo "リポジトリの Settings → Secrets and variables → Actions で OPENAI_API_KEY を登録してください。"
+            echo "（キーはチャットや作業環境に平文で置かないこと: docs/failures.md 2026-07-28）"
+            exit 1
+          fi
+          echo "OPENAI_API_KEY: 設定済み（値は出力しない）"
+
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser (chromium)
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # PGlite にスキーマを適用してから起動する（未適用だとサインアップが 500 になる。
+      # A-1 の独立検証で実際に踏んだ失敗: docs/failures.md 参照）。
+      - name: DB スキーマ適用 (PGlite)
+        run: pnpm --filter web db:push
+
+      - name: Build
+        run: pnpm --filter web build
+
+      - name: B-1 受入 E2E (実LLM)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'ci-only-not-a-production-secret-000000' }}
+        run: pnpm --filter web e2e:b1
+
+      - name: Playwright レポートを保存 (失敗時の追跡用)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-b1
+          path: apps/web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
