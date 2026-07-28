@@ -226,3 +226,38 @@
 - 教訓：**ローカルの画面操作で「無反応」に見えたら、まず実装の不具合と決めつけずハイドレーション
   完了を待って再試行する。** サーバーログにリクエストが届いているかで、クライアント側かサーバー側かを
   切り分けられる。
+
+## 2026-07-28 AIがユーザーにAPIキーの平文チャット貼り付けを繰り返し要求した（セキュリティ規律違反）
+- 事象：B-1（認証済みフローでのLP生成）の独立検証に実LLM呼び出しが要ると判断し、AI（Claude Code）が
+  `OPENAI_API_KEY` の値を**このチャットに直接貼るようユーザーへ繰り返し要求**した。ユーザーの指摘で中止。
+  実際の貼り付けは発生しておらず、`apps/web/.env` にキーは入っていない（`SEED_TOKEN=` と
+  `PGLITE_DATA_DIR` のみ・gitignore済み）。漏洩は起きていないが、**要求したこと自体が誤り**。
+- 根因：AIが「検証に実キーが要る」→「入力経路はチャットしかない」と短絡し、
+  **①そもそもキーをこの環境に入れない設計（CIのsecretsで回す）を先に検討しなかった**こと、
+  **②チャットを経由しない公式経路（Claude Code on the web の環境変数設定ダイアログ）を
+  第一提案にしなかった**こと。制約の中で最善を探さず、危険な手段を既定にした。
+- なぜ危険か（一次情報）：
+  - 会話履歴はプランにより**最長5年保持**され、学習に使われうる。Claude Code からの利用も含む
+    （https://code.claude.com/docs/en/data-usage）。
+  - transcript は `~/.claude/projects/` に**平文で**既定30日保存される（同上）。
+  - 秘匿値のマスキングは**「既知パターンのみ」**で網羅保証が無い（同上）。
+  - セッション共有時に **credential が露出しうる**と公式が明示的に警告している
+    （https://code.claude.com/docs/en/claude-code-on-the-web）。
+  - OWASP LLM01 原文が「プロンプトインジェクションに確実な防止策があるかは不明」と認めており、
+    **一度コンテキストに入った値は間接インジェクション経由で流出しうる**
+    （https://genai.owasp.org/llmrisk/llm012025-prompt-injection/）。OWASP LLM02 は
+    security credentials の漏出をリスクとして扱う。
+  - Anthropic公式：「Store API keys in a secrets manager, rotate them periodically, and
+    revoke any key you suspect has leaked」（https://platform.claude.com/docs/en/manage-claude/authentication）。
+  - Claude Code on the web には**専用の secrets store が存在しない**と公式に明記されており、
+    環境変数はその環境を編集できる人には見える（上記 claude-code-on-the-web）。
+- 対処：(1) 要求を撤回。(2) `.claude/settings.json` に公式推奨の deny ルール
+  （`Read(./.env)` / `Read(./.env.*)` / `Read(./secrets/**)`）を追加し、AIが`.env`を読めない状態にした。
+  (3) 実キーが要る検証は**CI（GitHub Actions secrets）で回し、evidence を CI run URL にする**方針へ変更。
+- 教訓：**AIはシークレットの値そのものを要求・保持・出力しない。** 「入力経路がチャットしかないから」は
+  平文要求の理由にならない。実キーが要る検証に突き当たったら、順に
+  **①キー不要の設計で成立しないか → ②CIのsecretsへ置いて外部事実(CI run URL)を証拠にできないか
+  → ③チャットを経由しない公式経路（環境変数設定ダイアログ）** を検討し、それでも駄目なら
+  使い捨て・短命・低予算の専用キーに限定する。**この順序を飛ばさない。**
+  なお本リポジトリの `AGENTS.md`「evidence は偽造不能な外部事実のみ（CI run URL / commit SHA）」は、
+  ②を選べば**セキュリティと検証規律を同時に満たす**ことを意味する。困ったら②が既定解。

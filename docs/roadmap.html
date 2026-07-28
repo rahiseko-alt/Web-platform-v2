@@ -117,11 +117,11 @@
 {
   "meta": {
     "title": "web-platform-v2：希望を伝えるとLPが完成するSaaS",
-    "active": "B-1",
-    "next": "B-1（認証済みユーザーが依頼文を送るとLPが生成される）から着手する。A（A-1〜A-4）とF（F-1〜F-4）が両方done化したことで、B.deps=[\"A-2\",\"F\"]が満たされBブロックが着手可能になった。",
+    "active": "B-2",
+    "next": "B-2（生成されたLPが、そのユーザーの所有物としてDBに保存される）へ着手する。B-1はdone化済みで deps を満たしている。B-2 では既知の欠落も一緒に解消する：ログイン成功後の遷移先が /editor だが app/editor/ は [siteId]/ しか無く実際に404になる（A-2検証時に独立検証者が実測）。この葉が満たす『自分のサイト一覧』がその着地点であり、一覧ページの実装はB-2に含まれる。",
     "handoff": {
-      "done": "A-4（ログイン済みでも他人の所有物にはアクセスできない＝IDOR拒否）を独立検証しPASS・done化した。これでA（A-1〜A-4）が全てdone。独立サブエージェント（.claude/agents/independent-verifier.md）が、サインアップ経由で作成した2アカウント（ユーザーA/B）と独立プロセスから直接DB投入したユーザーA所有のsite/sectionを使い、画面パス（/editor/<siteId>）は非所有者Bに404（所有者Aは200）、APIパス（PATCH /api/content/<sectionId>、POST .../image）は非所有者Bに403（所有者Aは200・副作用なしをDB直読みで確認）をcurl・実ブラウザ（Chromium）の両方で確認した（docs/verification/A-4-idor-reject.md）。検証過程で偽陽性の芽を2件検出・原因特定して排除している：(a) 独立プロセスからのPGlite直接書き込みは稼働中devサーバーへ即時反映されず所有者本人でも一時404になった→サーバー再起動で解消、(b) better-auth組込みのsign-inレート制限による一時401→レスポンス本文でアプリのバグでないことを確認し再実行。既にF（F-1〜F-4）もevidence充足済みでdone化されているため、B.deps=[\"A-2\",\"F\"]が両方満たされ、次はB-1から着手できる。",
-      "trouble": "無し。"
+      "done": "B-1（認証済みユーザーが依頼文を送るとLPが生成される）を実装し、CI受入を通してdone化した。認証済み入口 app/generate/page.tsx を新設し、生成手順は単一経路 createPageFromBrief() へ接続（F-4の構造ガード ENTRY_POINTS にも登録済み。足し忘れると複製が再発するため）。middleware.ts の matcher に /generate を追加し、ページ側でも requireSession（api-guard.ts に新設）で実体のセッションを再検証する多層防御にした。実装中に既存の認可境界のバグを1件修正：api-guard.ts の session?.user.id は user が欠けると TypeError（=500）になっていた（新規テストが検出）ため session?.user?.id へ倒し、想定外応答でもクリーンに401拒否するようにした。テストは132件全緑。受入はCIで判定：run 30323740695 が、実ログイン画面からのログイン→実際の送信UI（textarea入力→生成ボタンのクリック）→data-generate-status=ok・data-generate-from-cache=false（キャッシュ再表示ではなく実際にLLMを呼んだ）・セクション描画あり、を確認して緑（2 passed / 39.8s）。この run URL が evidence。なお1回目のrun（30322541703）も緑だったが、独立検証者の敵対的監査で『送信UIを通っていない＝送信経路が壊れても緑になる』穴を指摘されFAIL判定を受けたため、修正して取り直した（詳細はtrouble②）。",
+      "trouble": "2件。①（重大・恒久対策済み）AIがB-1の実キー検証のために、ユーザーへOPENAI_API_KEYの平文チャット貼り付けを繰り返し要求した。ユーザーの指摘で中止。実際の貼り付けと漏洩は発生していないが要求自体が誤り。恒久対策として .claude/settings.json に公式推奨の deny ルール（Read(./.env) 等）を追加しAIが.envを読めない状態にし、実キーが要る検証はCIのSecretsで回してevidenceをCI run URLにする方針へ変更した（AGENTS.mdのevidence規律とも整合する既定解）。根拠・再発防止の順序は docs/failures.md 2026-07-28 に蓄積済み。②（修正済み）1回目のCI受入（run 30322541703）は成功したが、独立検証者による証拠の敵対的監査でFAIL判定を受けた。テストが page.goto('/generate?brief=...') とクエリを直接叩いており、送信UI（textarea・生成ボタン）を一度も通っていなかったため、criteria『依頼文を送信すると』に対して送信経路が壊れても緑のままになる穴があった。実際の送信UIを操作する形へ修正し、あわせて監査が挙げた弱点（キャッシュ再表示でも緑になる→data-generate-from-cache='false'を要求、reuseExistingServerの無条件true→!process.env.CI、test.skipによるスキップ経路→expectで落とす、pushトリガのパスが狭くevidenceが腐る→render/sections/auth/login/middlewareを追加）も塞いだ。"
     },
     "updated": "2026-07-28"
   },
@@ -168,8 +168,8 @@
             { "id":"B-1", "kind":"state",
               "theme":"認証済みユーザーが依頼文を送るとLPが生成される",
               "meaning":"希望を伝えるとLPができる",
-              "detail":"1事実：生成の実行。生成ロジック（src/generate/generate.ts）は実装済みだが、認証済みフローからの呼び出しが未接続。永続化（B-2）とは別工程（LLM呼び出し vs DB書き込み）。",
-              "criteria": [ { "text":"ログイン中に依頼文を送信すると生成が実行され、結果が返る", "verify":"実際にログイン後、依頼文を送信し、生成結果が返ることを確認する", "evidence":"" } ] },
+              "detail":"1事実：生成の実行。認証済み入口 app/generate/page.tsx を実装し、単一経路 createPageFromBrief()（F-4）へ接続した。middleware.ts の matcher に /generate を追加し、ページ側でも requireSession で実体のセッションを再検証する多層防御にしている（構造ガードは tests/unit/api-guard-session.test.ts）。実装時に既存の認可境界のバグを1件修正：api-guard.ts の session?.user.id は user が欠けると TypeError（=500）になっていたため session?.user?.id へ倒し、想定外応答でもクリーンに401拒否するようにした。ローカルでは未ログイン=307→/login?redirect=%2Fgenerate、ログイン済み=200かつフォーム表示、依頼文送信で分岐到達まで確認済み。受入（実LLMを叩いて結果が返る）は課金と鍵管理の都合でCI側で判定する：OPENAI_API_KEY をリポジトリの Secrets に置き、.github/workflows/b1-generate-smoke.yml が tests/e2e/authed-generate.spec.ts を実行する。テストは実ログイン画面からログインし、**実際の送信UI（textarea に入力→生成ボタンをクリック）**で依頼文を送り、data-generate-status=ok・data-generate-from-cache=false（＝キャッシュ再表示ではなく実際にLLMを呼んだ）・セクション描画あり、を要求する。クエリ直叩き（page.goto('/generate?brief=...')）では送信経路の破損を検出できないという独立検証者の指摘を受けて修正した経緯がある。鍵をチャットや作業環境に平文で置かない方針は docs/failures.md 2026-07-28 が正。永続化（B-2）とは別工程（LLM呼び出し vs DB書き込み）。",
+              "criteria": [ { "text":"ログイン中に依頼文を送信すると生成が実行され、結果が返る", "verify":"実際にログイン後、依頼文を送信し、生成結果が返ることを確認する（判定は b1-generate-smoke.yml の CI run で行い、その run URL を evidence にする）", "evidence":"https://github.com/rahiseko-alt/Web-platform-v2/actions/runs/30323740695" } ] },
             { "id":"B-2", "kind":"state",
               "theme":"生成されたLPが、そのユーザーの所有物としてDBに保存される",
               "meaning":"できたLPが自分の持ち物として残る",
