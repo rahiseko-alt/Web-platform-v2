@@ -117,13 +117,13 @@
 {
   "meta": {
     "title": "web-platform-v2：希望を伝えるとLPが完成するSaaS",
-    "active": "A-3",
-    "next": "A-3（ログインしていないと保護ページに到達できないことを実際に確認する）から着手する。A-3はA-2に依存しない独立の葉。",
+    "active": "A-4",
+    "next": "A-4（ログイン済みでも他人の所有物にはアクセスできないことを実際に確認する）から着手する。A-3はdone化済み。A-4はA-2に依存し、A-2は既にdone。",
     "handoff": {
-      "done": "A-2（ログイン・セッション確立）を独立検証しPASS・done化した。前回の教訓どおり、着手前に pnpm db:push でスキーマ適用を済ませてから開発サーバーを起動したため、A-1のときのようなマイグレーション未適用FAILは起きなかった。判定は作業者ではなく独立サブエージェント（.claude/agents/independent-verifier.md）が実施し、HTTP 200を根拠にせず、サインアップが自動発行するセッションを捨ててログイン由来cookieのみで再取得・実ブラウザでの完全リロード/別タブ・cookie改変で失効し復元で再取得・devサーバー再起動をまたぐ持続・独立プロセスからの.pglite直読み・誤資格情報の401、という多角で確認した（docs/verification/A-2-login.md に実コマンドと実出力を保存）。検証中に本葉の範囲外の発見が2件あり、消えないよう該当ノードのdetailへ転記した。①ログイン成功後の遷移先 /editor が実在せず404になる（app/editor は [siteId]/ のみ）→ B-2 のdetailへ。②src/auth/index.ts に baseURL/trustedOrigins が無く信頼オリジンが実質 localhost:3000 固定で、Origin=127.0.0.1 も evil.example.com も403。本番ドメインからのログインが403になる公算が高く、しかも画面には『メールアドレスまたはパスワードが正しくありません』と出て原因が見えない → E-2 のdetailへ。②は本番稼働を止めうるため docs/failures.md にも根因・教訓つきで蓄積した。",
-      "trouble": "1件（検証者側で解消済み）。dev モードでハイドレーション完了前にログインフォームを送信すると onSubmit が効かず、素の form GET（/login?）になって無反応に見える。検証1回目はこれで空振りした。ローカルで画面から検証するときはページ読み込み完了を待ってから操作する。なお A-2 の判定自体には影響していない（API経路と実ブラウザ経路の双方でPASS）。"
+      "done": "A-3（未ログインだと保護ページに到達できない）を独立検証しPASS・done化した。判定は作業者ではなく独立サブエージェント（.claude/agents/independent-verifier.md）が実施し、画面パス（/editor/<siteId>）はcurlのHTTPヘッダで307→/login?redirectを確認、さらに実ブラウザ（Chromium）で最終URLと画面見出し『ログイン』を確認、APIパス（/api/content/<path>）は401 {\"error\":\"Unauthorized\"}を確認した。対照実験としてmatcher対象外の/・/login・/api/auth/get-sessionは通常通り200を返すことも確認し、全パス一律拒否の偽の緑でないことを示した（docs/verification/A-3-unauth-reject.md に実コマンドと実出力を保存）。参考情報として、改ざんCookieは一次遮断（Cookie存在のみを見る設計）を通過することも観測したが、これはmiddleware.tsのコメントに明記された多層防御設計（二次防御は各route/pageのauth.api.getSession()）どおりであり、A-3のcriteria（未ログイン＝Cookie無し）の対象外として記録に留めた。",
+      "trouble": "無し。前回（A-2）の教訓どおり、検証前に pnpm db:push でスキーマ適用してから開発サーバーを起動したため環境起因のFAILは発生しなかった。"
     },
-    "updated": "2026-07-27"
+    "updated": "2026-07-28"
   },
   "nodes": [
     { "id":"G", "kind":"state",
@@ -150,8 +150,8 @@
             { "id":"A-3", "kind":"state",
               "theme":"ログインしていないと保護ページに到達できない",
               "meaning":"ログインしないと入れない",
-              "detail":"1事実：未ログイン拒否。middleware.tsのCookie存在チェックが実装済みだが、実際に未ログインでの拒否を確認した実績が無い。",
-              "criteria": [ { "text":"未ログイン状態で保護ページ/APIへアクセスすると拒否される", "verify":"実際に未ログイン状態で保護ページへアクセスし、拒否される（ログイン画面へ誘導される等）ことを確認する", "evidence":"" } ] },
+              "detail":"1事実：未ログイン拒否。独立検証者がPASS判定（docs/verification/A-3-unauth-reject.md）。画面パス（/editor/<siteId>）はcurlのHTTPヘッダで307→/login?redirectを確認し、さらに実ブラウザ（Chromium）でも最終URLと画面見出し『ログイン』を確認した。APIパス（/api/content/<path>）は401 {\"error\":\"Unauthorized\"}。対照実験としてmatcher対象外の/・/login・/api/auth/get-sessionは通常通り200が返ることを確認し、全パス一律拒否の偽の緑でないことを示した。参考情報：middleware.tsはEdge runtimeのためCookieの存在のみを見る一次遮断設計であり、改ざんCookieは一次遮断を通過する（二次防御は各route/pageのauth.api.getSession()に委ねる設計どおり）。これは本criteriaの対象外。",
+              "criteria": [ { "text":"未ログイン状態で保護ページ/APIへアクセスすると拒否される", "verify":"実際に未ログイン状態で保護ページへアクセスし、拒否される（ログイン画面へ誘導される等）ことを確認する", "evidence":"d003a77" } ] },
             { "id":"A-4", "kind":"state",
               "theme":"ログイン済みでも、他人の所有物にはアクセスできない",
               "meaning":"他人のサイトを覗いたり触ったりできない",
