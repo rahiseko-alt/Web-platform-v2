@@ -13,9 +13,11 @@ loadEnvConfig(process.cwd());
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  // B-1 の受入検証は**実LLMを叩いて課金が発生する**ため、通常の `pnpm e2e` からは除外する。
-  // 実行は playwright.b1.config.ts ＋ 専用ワークフローからのみ（`pnpm e2e:b1`）。
-  testIgnore: /authed-generate\.spec\.ts$/,
+  // 受入検証のうち**実LLMを叩いて課金が発生する**ものは、通常の `pnpm e2e` からは除外する。
+  // 実行はそれぞれの専用 config ＋ 専用ワークフローからのみ（`pnpm e2e:b1` / `e2e:b2` / `e2e:b3` / `e2e:c1`）。
+  // これらの spec は「キー未設定なら落とす」方針（SKIP-AS-FAIL）なので、ここへ載せると
+  // キーの無い環境で `pnpm e2e` が必ず赤くなる。
+  testIgnore: /authed-(generate|persist|score|regenerate)\.spec\.ts$/,
   fullyParallel: false,
   workers: 1,
   globalSetup: './tests/e2e/global-setup.ts',
