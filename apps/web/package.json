@@ -16,7 +16,9 @@
     "e2e:b2": "playwright test --config=playwright.b2.config.ts",
     "verify:b2": "node scripts/verify-b2-persistence.mjs",
     "e2e:b3": "playwright test --config=playwright.b3.config.ts",
-    "verify:b3": "vitest run --config vitest.b3.config.ts"
+    "verify:b3": "vitest run --config vitest.b3.config.ts",
+    "e2e:c1": "playwright test --config=playwright.c1.config.ts",
+    "verify:c1": "node scripts/verify-c1-overwrite.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

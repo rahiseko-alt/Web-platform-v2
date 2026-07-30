@@ -1,0 +1,123 @@
+name: C-1 言い直し受入 (上書き再生成・実LLM)
+
+# ロードマップ C-1（依頼文を直して再生成すると同じサイトが置き換わる）と
+# C-1-b（他人のサイトIDを指定した上書きは拒否される）の受入検証。この1本で2葉を判定する。
+#
+# **実際に OpenAI を呼ぶ（課金が発生する。1回の実行で生成2回）** ため、ci.yml とは分けて
+# 手動 / 明示実行にしている。ci-green には束ねない（毎PRで課金しない・キー未設定でPRを止めない）。
+#
+# 実LLM呼び出しを2回に抑えている理由（tests/e2e/authed-regenerate.spec.ts と対応）:
+#   - 同一依頼文の再送信（対照）はキャッシュ命中なので 0 回
+#   - C-1-b の攻撃は生成より前に所有権チェックで弾かれる設計なので 0 回
+#
+# キーの扱い（docs/failures.md 2026-07-28 の教訓）:
+#   OPENAI_API_KEY は**リポジトリの Secrets にのみ**置く。チャットにも作業環境にも平文で置かない。
+#
+# このワークフローの run URL が、C-1 / C-1-b の evidence（偽造不能な外部事実）になる。
+
+on:
+  workflow_dispatch:
+  push:
+    # C-1 / C-1-b の成立に関わる経路を触ったら再検証する。ここが狭いと、上書きや所有権チェックを
+    # 壊しても再検証されず、過去の run URL だけが evidence として残る（evidence の腐敗）。
+    paths:
+      - 'apps/web/app/generate/**'
+      - 'apps/web/app/editor/**'
+      - 'apps/web/app/(auth)/login/**'
+      - 'apps/web/src/db/**'
+      - 'apps/web/drizzle/**'
+      - 'apps/web/src/generate/**'
+      - 'apps/web/src/render/**'
+      - 'apps/web/src/sections/**'
+      - 'apps/web/src/auth/**'
+      - 'apps/web/src/lib/api-guard.ts'
+      - 'apps/web/middleware.ts'
+      - 'apps/web/tests/e2e/authed-regenerate.spec.ts'
+      - 'apps/web/playwright.c1.config.ts'
+      - 'apps/web/scripts/verify-c1-overwrite.mjs'
+      # e2e:c1 / verify:c1 のコマンド定義そのものが変わっても再検証する
+      # （scripts だけ変えて中身を弱めても、過去の run URL が evidence として残ってしまう）
+      - 'apps/web/package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/c1-regenerate-smoke.yml'
+
+jobs:
+  authed-regenerate:
+    name: 言い直しの上書き (login → 生成 → 言い直し → 保存先を別プロセスで確認)
+    runs-on: ubuntu-latest
+    steps:
+      # キー未設定を「スキップして緑」にしない。偽の緑を作らないため明示的に落とす
+      # （b1/b2/b3-*-smoke.yml と同じ SKIP-AS-FAIL 方式）。
+      - name: OPENAI_API_KEY の存在を確認 (未設定なら落とす)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY}" ]; then
+            echo "SKIP-AS-FAIL: OPENAI_API_KEY が未設定です。"
+            echo "リポジトリの Settings → Secrets and variables → Actions で OPENAI_API_KEY を登録してください。"
+            echo "（キーはチャットや作業環境に平文で置かないこと: docs/failures.md 2026-07-28）"
+            exit 1
+          fi
+          echo "OPENAI_API_KEY: 設定済み（値は出力しない）"
+
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser (chromium)
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # 未適用だとサインアップが 500 になる（A-1 の独立検証で実際に踏んだ失敗: docs/failures.md 参照）。
+      - name: DB スキーマ適用 (PGlite)
+        run: pnpm --filter web db:push
+
+      - name: Build
+        run: pnpm --filter web build
+
+      - name: C-1 / C-1-b 受入 E2E (実LLM・生成2回)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET || 'ci-only-not-a-production-secret-000000' }}
+        run: pnpm --filter web e2e:c1
+
+      # ⚠ 「PGlite は単一プロセス専有だから、読めたこと自体が停止の証拠」は**誤り**
+      #   （pglite 0.5.4 では稼働中でも別プロセスから同じ dataDir を開けることを実測済み。
+      #   docs/failures.md 2026-07-28）。停止は次の2つで担保する：
+      #   (a) E2E とこの検証を別ステップ＝別プロセスに分け、Playwright の webServer が
+      #       E2E 終了時に `pnpm start` を終了させる (b) 下の到達性チェックで実際に確認する。
+      - name: サーバーが停止していることを確認 (まだ生きていたら落とす)
+        run: |
+          # 接続できないとき curl は %{http_code} に 000 を出す。それ以外＝まだ応答している。
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:3000 || true)
+          if [ "$code" != "000" ]; then
+            echo "FAIL: サーバーがまだ応答しています (HTTP $code)。"
+            echo "この状態で保存先を読むと、稼働中プロセスと同じ状態を見ているだけになり上書きの証明にならない。"
+            exit 1
+          fi
+          echo "OK: localhost:3000 は応答なし（サーバー停止済み）"
+
+      # ここが C-1（サイトが増えていない）/ C-1-b（被害者の中身が変わっていない）の判定本体。
+      # 上の step で停止を確認したあとに実行すること（順序を入れ替えない）。
+      - name: C-1 / C-1-b の確認 (サーバー停止後・別プロセスから保存先を直読み)
+        run: pnpm --filter web verify:c1
+
+      - name: Playwright レポートを保存 (失敗時の追跡用)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-c1
+          path: apps/web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
