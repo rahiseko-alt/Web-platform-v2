@@ -70,7 +70,20 @@ type Observed = { siteId: string; headline: string; sectionTypes: string[]; from
  */
 async function readResult(page: Page): Promise<Observed> {
   const result = page.locator('[data-generate-status="ok"]');
-  await expect(result).toBeVisible({ timeout: GENERATE_TIMEOUT_MS });
+  const failure = page.locator('[data-generate-status="error"]');
+
+  // 生成に失敗した画面（鍵が無効・LLM側のエラー等）が出ているときは、成功マーカーを
+  // 180秒待ってから「見つからない」と落ちるのではなく、**その場で理由つきで落とす**。
+  // 待ってから落ちると、CIログの結論が「要素が無い」になり、本当の原因（LLM側の応答）が
+  // WebServer ログの奥に埋もれて読み取れなくなる。
+  await expect(result.or(failure).first()).toBeVisible({ timeout: GENERATE_TIMEOUT_MS });
+  if ((await failure.count()) > 0) {
+    const reason = (await failure.first().innerText()).trim();
+    throw new Error(
+      `生成が失敗した画面が出ている: 「${reason}」。受入の前提（実際に生成が走る）が成立していないので、` +
+        'このrunはC-1/C-1-bの証拠にならない。CIログの [WebServer] 行でLLM側の応答を確認すること。',
+    );
+  }
 
   const fromCache = (await result.getAttribute('data-generate-from-cache')) ?? '';
   const siteId = await result.getAttribute('data-saved-site-id');
@@ -91,14 +104,33 @@ async function readResult(page: Page): Promise<Observed> {
  * **実際の送信UI**（textarea へ入力 → 生成ボタンをクリック）で依頼文を送る。
  * クエリを直接書き換えて遷移する方法は使わない：送信経路の破損を検出できないため
  * （B-1 で独立検証者に指摘された経緯がある）。
+ *
+ * 待ち方に URL 変化を使わない理由:
+ *   このテストは**同じ依頼文をそのまま再送信する対照**（キャッシュ命中の確認）を行う。
+ *   そのときURLは送信前と送信後で同一なので、`waitForURL` は即座に解決してしまい、
+ *   **前のページのDOMを読んだまま**判定に進む（＝観測対象がすり替わる）。
+ *   代わりに実際のナビゲーション応答を待つ。応答は毎回必ず1つ返るので、
+ *   URLが変わらない送信でも取り違えない。
  */
 async function submitBrief(page: Page, brief: string): Promise<void> {
   const textarea = page.getByPlaceholder(BRIEF_PLACEHOLDER);
   await textarea.fill(brief);
-  await Promise.all([
-    page.waitForURL((url) => url.searchParams.get('brief') === brief, { timeout: GENERATE_TIMEOUT_MS }),
-    page.getByRole('button', { name: '生成' }).click(),
-  ]);
+
+  const navigation = page.waitForResponse(
+    (response) =>
+      response.request().isNavigationRequest() && new URL(response.url()).pathname === '/generate',
+    { timeout: GENERATE_TIMEOUT_MS },
+  );
+  await page.getByRole('button', { name: '生成' }).click();
+  const response = await navigation;
+  expect(response.status(), `依頼文の送信が失敗した (HTTP ${response.status()})`).toBe(200);
+  await page.waitForLoadState('domcontentloaded');
+
+  // 送った依頼文が実際にURLへ乗っていること（＝送信経路が生きていることの確認）
+  expect(
+    new URL(page.url()).searchParams.get('brief'),
+    '送信した依頼文がURLに乗っていない（送信経路が壊れている）',
+  ).toBe(brief);
 }
 
 test.describe('C-1: 依頼文を直して再生成すると同じサイトが置き換わる', () => {
